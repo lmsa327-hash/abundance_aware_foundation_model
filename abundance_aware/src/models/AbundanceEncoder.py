@@ -46,8 +46,8 @@ class AbundanceEncoderWithFiLM(nn.Module):
         nn.init.zeros_(self.encoder[-1].weight)
         nn.init.zeros_(self.encoder[-1].bias)
 
-    def forward(self, abundance):
-        x = abundance.unsqueeze(-1) * self.freqs
+    def forward(self, abundances):
+        x = abundances.unsqueeze(-1) * self.freqs
 
         features = torch.cat(
             [torch.sin(x), torch.cos(x)],
