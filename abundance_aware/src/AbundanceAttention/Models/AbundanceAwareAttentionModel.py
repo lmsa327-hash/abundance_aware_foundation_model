@@ -7,16 +7,19 @@ from transformers import GPT2LMHeadModel
 from transformers.modeling_outputs import CausalLMOutputWithCrossAttentions
 from transformers.models.gpt2.modeling_gpt2 import GPT2Attention, GPT2Block, GPT2Model
 
+
 from abundance_aware.src.AbundanceAttention.Models.AbundanceBias import AbundanceEncoder, HeadWiseAbundanceBias
+from abundance_aware.src.AbundanceAttention.Models.GatedFusionModule import GatedAbundanceFusion
 from abundance_aware.src.models.AbundanceAwareModel import AbundanceAwareGPT2LMHeadModel
 
 
 class AbundanceAwareGPT2Attention(GPT2Attention):
 
-    def __init__(self, config, layer_idx=None,is_cross_attention=False):
+    def __init__(self, config, layer_idx=None,is_cross_attention=False, gated=False):
         super().__init__(config)
         self.num_heads = config.num_attention_heads
         self.rank = config.rank
+        self.gated=gated
         self.abundance_embedding = AbundanceEncoder(config.n_embd)
         self.abundance_bias = HeadWiseAbundanceBias(
             hidden_size=config.hidden_size,
@@ -26,6 +29,8 @@ class AbundanceAwareGPT2Attention(GPT2Attention):
         self.abundance_scale = nn.Parameter(
             torch.tensor(0.0)
         )
+        if gated:
+            self.gated_fusion = GatedAbundanceFusion(hidden_size=config.hidden_size)
         # nn.init.zeros_(model.abundance_embedding.mlp[-1].weight)
         # nn.init.zeros_(model.abundance_embedding.mlp[-1].bias)
 
@@ -33,8 +38,14 @@ class AbundanceAwareGPT2Attention(GPT2Attention):
             self,
             query,
             key,
-            abundance_embeddings=None
+            abundance_embeddings=None,
+            fused_embeddings=None,
     ):
+        if self.gated:
+            if fused_embeddings is not None:
+                query = fused_embeddings * query
+                key = fused_embeddings * key
+
         attn_weights = torch.matmul(
             query,
             key.transpose(-1, -2)
@@ -136,7 +147,14 @@ class AbundanceAwareGPT2Attention(GPT2Attention):
         abundance_embeddings = None
         if abundances is not None:
             abundance_embeddings = self.abundance_embedding(abundances)
-        attn_weights = self.compute_attention(query=query_states, key=key_states, abundance_embeddings=abundance_embeddings)
+
+        #gate here
+        fused_embeddings = None
+        if self.gated:
+            fused_embeddings, gates = self.gated_fusion(hidden_states, abundance_embeddings)
+            value_states = value_states * fused_embeddings
+
+        attn_weights = self.compute_attention(query=query_states, key=key_states, abundance_embeddings=abundance_embeddings, fused_embeddings=fused_embeddings)
 
         if attention_mask is not None:
             attn_weights = attn_weights + attention_mask
