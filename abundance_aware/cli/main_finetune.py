@@ -18,6 +18,7 @@ from transformers.trainer_callback import EarlyStoppingCallback
 from abundance_aware.src.Datasets.MicrobialCorpus import SequenceClassificationDataset
 from abundance_aware.src.models.AbundanceAwareModel import AbundanceAwareGPT2ForSequenceClassification
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def finetune(cfg, args):
     corpus = load(open(args.input, "rb"))
@@ -68,7 +69,7 @@ def finetune(cfg, args):
     training_args = TrainingArguments(**training_args)
 
     print(f"Start training...")
-    model = model.train()
+    model = model.train().to(device)
 
     split = args.val_split
     

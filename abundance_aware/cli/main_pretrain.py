@@ -20,7 +20,7 @@ from abundance_aware.src.models.AbundanceAwareModel import AbundanceAwareGPT2LMH
 warnings.filterwarnings("ignore")
 
 torch.set_float32_matmul_precision("medium")  # For tensor cores
-
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def pretrain(cfg, args):
     corpus = load(open(args.input, 'rb'))
@@ -87,11 +87,11 @@ def pretrain(cfg, args):
     )
 
     if args.from_scratch:
-        model = AbundanceAwareGPT2LMHeadModel(config)
+        model = AbundanceAwareGPT2LMHeadModel(config).to(device)
         print("Training from scratch.")
     else:
 
-        model = AbundanceAwareGPT2LMHeadModel.from_pretrained(args.model)
+        model = AbundanceAwareGPT2LMHeadModel.from_pretrained(args.model).to(device)
 
     if args.with_label:
         model.resize_token_embeddings(len(tokenizer))
