@@ -15,11 +15,16 @@ from abundance_aware.src.models.AbundanceAwareModel import AbundanceAwareGPT2LMH
 
 class AbundanceAwareGPT2Attention(GPT2Attention):
 
-    def __init__(self, config, layer_idx=None,is_cross_attention=False, gated=False):
+    def __init__(self, config,
+                 layer_idx=None
+                 ,is_cross_attention=False,
+                 gated=False):
         super().__init__(config)
         self.num_heads = config.num_attention_heads
         self.rank = config.rank
         self.gated=gated
+        self.is_cross_attention=is_cross_attention
+        self.layer_idx=layer_idx
         self.abundance_embedding = AbundanceEncoder(config.n_embd)
         self.abundance_bias = HeadWiseAbundanceBias(
             hidden_size=config.hidden_size,
