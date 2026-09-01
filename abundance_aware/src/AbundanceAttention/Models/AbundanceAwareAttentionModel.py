@@ -8,7 +8,8 @@ from transformers.modeling_outputs import CausalLMOutputWithCrossAttentions
 from transformers.models.gpt2.modeling_gpt2 import GPT2Attention, GPT2Block, GPT2Model
 
 
-from abundance_aware.src.AbundanceAttention.Models.AbundanceBias import AbundanceEncoder, HeadWiseAbundanceBias
+from abundance_aware.src.AbundanceAttention.Models.AbundanceBias import AbundanceEncoder, HeadWiseAbundanceBias, \
+    RelativeAbundanceBias
 from abundance_aware.src.AbundanceAttention.Models.GatedFusionModule import GatedAbundanceFusion
 from abundance_aware.src.models.AbundanceAwareModel import AbundanceAwareGPT2LMHeadModel
 
@@ -26,6 +27,9 @@ class AbundanceAwareGPT2Attention(GPT2Attention):
         self.is_cross_attention=is_cross_attention
         self.layer_idx=layer_idx
         self.abundance_embedding = AbundanceEncoder(config.n_embd)
+        # self.relative_abundance_bias = RelativeAbundanceBias(
+        #     hidden_dim=config.hidden_size,
+        #     num_heads=config.num_attention_heads)
         self.abundance_bias = HeadWiseAbundanceBias(
             hidden_size=config.hidden_size,
             num_heads=config.num_attention_heads,
@@ -67,6 +71,14 @@ class AbundanceAwareGPT2Attention(GPT2Attention):
                     self.abundance_scale
                     * bias
             )
+            # if relative_abundance_bias is not None:
+            #
+            #     attn_weights += (
+            #             attn_weights
+            #             + self.abundance_scale * self.relative_abundance_bias(abundance_embeddings)
+            #     )
+            # or
+            #     attn_weights += self.abundance_scale * self.relative_abundance_bias(abundance_embeddings)
 
         return attn_weights
     def forward(self,

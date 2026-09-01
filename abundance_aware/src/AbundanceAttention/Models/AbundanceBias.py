@@ -92,3 +92,102 @@ class AbundanceEncoder(nn.Module):
         x = abundance.unsqueeze(-1) * self.freqs
         feats = torch.cat([torch.sin(x), torch.cos(x)], dim=-1)
         return self.mlp(feats)
+
+class RelativeAbundanceBias(nn.Module):
+
+    def __init__(
+        self,
+        num_heads,
+        hidden_dim=32,
+        epsilon=1e-8,
+    ):
+        super().__init__()
+
+        self.epsilon = epsilon
+
+        self.mlp = nn.Sequential(
+            nn.Linear(2, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, num_heads),
+        )
+
+    def forward(self, abundances):
+
+        log_a = torch.log(
+            abundances + self.epsilon
+        )
+
+        ai = log_a.unsqueeze(-1)
+        aj = log_a.unsqueeze(-2)
+
+        relative = ai - aj
+
+        features = torch.cat(
+            [
+                relative.unsqueeze(-1),
+                relative.abs().unsqueeze(-1),
+            ],
+            dim=-1,
+        )
+
+        # [B, N, N, H]
+        bias = self.mlp(features)
+
+        # [B, H, N, N]
+        return bias.permute(0, 3, 1, 2)
+
+# class RelativeAbundanceBias(nn.Module):
+#     """
+#     Converts pairwise relative abundance into an
+#     attention bias for each attention head.
+#
+#     Input:
+#         abundances: [batch, seq_len]
+#
+#     Output:
+#         bias: [batch, num_heads, seq_len, seq_len]
+#     """
+#
+#     def __init__(
+#         self,
+#         num_heads: int,
+#         hidden_dim: int = 32,
+#         epsilon: float = 1e-8,
+#     ):
+#         super().__init__()
+#
+#         self.num_heads = num_heads
+#         self.epsilon = epsilon
+#
+#         self.mlp = nn.Sequential(
+#             nn.Linear(1, hidden_dim),
+#             nn.GELU(),
+#             nn.Linear(hidden_dim, num_heads),
+#         )
+#
+#     def forward(self, abundances):
+#
+#         # [B, N]
+#         log_abundance = torch.log(
+#             abundances + self.epsilon
+#         )
+#
+#         # [B, N, 1]
+#         ai = log_abundance.unsqueeze(-1)
+#
+#         # [B, 1, N]
+#         aj = log_abundance.unsqueeze(-2)
+#
+#         # [B, N, N]
+#         relative_abundance = ai - aj
+#
+#         # [B, N, N, 1]
+#         relative_abundance = relative_abundance.unsqueeze(-1)
+#
+#         # [B, N, N, H]
+#         bias = self.mlp(relative_abundance)
+#
+#         # [B, H, N, N]
+#         bias = bias.permute(0, 3, 1, 2)
+#
+#         return bias
