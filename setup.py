@@ -28,7 +28,7 @@ if __name__ == "__main__":
         # change package_name to your package name.
         entry_points={
             "console_scripts": [
-                "abundance_aware=abundance_aware.cli:main"
+                "gwmm=abundance_aware.cli:main"
             ]
         },
         package_data={
@@ -44,7 +44,6 @@ if __name__ == "__main__":
             "Topic :: Scientific/Engineering :: Bio-Informatics",
             "Programming Language :: Python :: 3.14",
             "Development Status :: 4 - Beta",
-            "License :: OSI Approved :: MIT License",
             "Operating System :: OS Independent",
             "Natural Language :: English"
 

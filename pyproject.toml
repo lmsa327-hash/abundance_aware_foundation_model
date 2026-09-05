@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "abundanance_aware_mgm"
+version = "0.0.1"
+description = "Adopted from MGM (Microbial General Model) by HUST-NingKang-Lab as a large-scaled pretrained language model for interpretable microbiome data analysis adding abundance awareness."
+authors = [
+    { name = "Lewis Msasa", email = "lmsa327@aucklanduni.ac.nz" }
+]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    "numpy",
+    "pandas",
+    "pytorch_lightning",
+    "scikit_learn",
+    "setuptools",
+    "torch",
+    "tqdm",
+    "transformers",
+    "accelerate"
+]
+
+
+classifiers = [
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Programming Language :: Python :: 3",
+    "Development Status :: 4 - Beta",
+    "Operating System :: OS Independent",
+    "Natural Language :: English",
+]
+
+
+[project.scripts]
+gwmm = "abundance_aware.cli:main"
+
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+abundance_aware = [
+    "resources/*",
+    "resources/tmp/*"
+]
+[tool.setuptools.packages.find]
+where = ["."]

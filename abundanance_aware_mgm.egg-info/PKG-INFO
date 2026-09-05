@@ -1,0 +1,32 @@
+Metadata-Version: 2.4
+Name: abundanance_aware_mgm
+Version: 0.0.1
+Summary: Adopted from MGM (Microbial General Model) by HUST-NingKang-Lab as a large-scaled pretrained language model for interpretable microbiome data analysis adding abundance awareness.
+Home-page: 
+Author: Lewis Msasa
+Author-email: lmsa327@aucklanduni.ac.nz
+License: MIT
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Development Status :: 4 - Beta
+Classifier: Operating System :: OS Independent
+Classifier: Natural Language :: English
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: pytorch_lightning
+Requires-Dist: scikit_learn
+Requires-Dist: setuptools
+Requires-Dist: torch
+Requires-Dist: tqdm
+Requires-Dist: transformers
+Requires-Dist: accelerate
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description-content-type
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

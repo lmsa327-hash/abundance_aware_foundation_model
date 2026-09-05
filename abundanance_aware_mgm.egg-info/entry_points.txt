@@ -1,0 +1,2 @@
+[console_scripts]
+gwmm = abundance_aware.cli:main
