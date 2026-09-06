@@ -7,197 +7,249 @@ from transformers import GPT2LMHeadModel
 from transformers.modeling_outputs import CausalLMOutputWithCrossAttentions
 from transformers.models.gpt2.modeling_gpt2 import GPT2Attention, GPT2Block, GPT2Model
 
+from abundance_aware.src.common.ComputeBias import BIAS_REGISTRY, AttentionBias
+from abundance_aware.src.models.AbundanceEncoder import AbundanceEncoder
 
-from abundance_aware.src.AbundanceAttention.Models.AbundanceBias import AbundanceEncoder, HeadWiseAbundanceBias, \
-    RelativeAbundanceBias
-from abundance_aware.src.AbundanceAttention.Models.GatedFusionModule import GatedAbundanceFusion
-from abundance_aware.src.models.AbundanceAwareModel import AbundanceAwareGPT2LMHeadModel
+class AbundanceAwareGPT2IndividualAttentionWeightsAttention(GPT2Attention):
 
-
-class AbundanceAwareGPT2Attention(GPT2Attention):
-
-    def __init__(self, config,
-                 layer_idx=None
-                 ,is_cross_attention=False,
-                 gated=False):
+    def __init__(self, config, layer_idx=None, is_cross_attention=False, biases=None):
         super().__init__(config)
         self.num_heads = config.num_attention_heads
-        self.rank = config.rank
-        self.gated=gated
-        self.is_cross_attention=is_cross_attention
-        self.layer_idx=layer_idx
-        self.abundance_embedding = AbundanceEncoder(config.n_embd)
-        # self.relative_abundance_bias = RelativeAbundanceBias(
-        #     hidden_dim=config.hidden_size,
-        #     num_heads=config.num_attention_heads)
-        self.abundance_bias = HeadWiseAbundanceBias(
-            hidden_size=config.hidden_size,
-            num_heads=config.num_attention_heads,
-            rank=16
-        )
-        self.abundance_scale = nn.Parameter(
-            torch.tensor(0.0)
-        )
-        if gated:
-            self.gated_fusion = GatedAbundanceFusion(hidden_size=config.hidden_size)
-        # nn.init.zeros_(model.abundance_embedding.mlp[-1].weight)
-        # nn.init.zeros_(model.abundance_embedding.mlp[-1].bias)
+        self.is_cross_attention = is_cross_attention
+        self.layer_idx = layer_idx
+        self.biases = nn.ModuleDict()
+        self.bias_scales = nn.ParameterDict()
+        self._bias_input_keys = {}
 
-    def compute_attention(
-            self,
-            query,
-            key,
-            abundance_embeddings=None,
-            fused_embeddings=None,
-    ):
-        if self.gated:
-            if fused_embeddings is not None:
-                query = fused_embeddings * query
-                key = fused_embeddings * key
+        for name, cfg in (biases or {}).items():
+            if name not in BIAS_REGISTRY:
+                raise KeyError(f"No bias registered under '{name}'. Available: {list(BIAS_REGISTRY)}")
+            cfg = dict(cfg)
+            init_scale = cfg.pop("init_scale", 0.0)
+            module = BIAS_REGISTRY[name](**cfg)
+            self.biases[name] = module
+            self.bias_scales[name] = nn.Parameter(torch.tensor(float(init_scale)))
+            self._bias_input_keys[name] = module.input_key
 
-        attn_weights = torch.matmul(
-            query,
-            key.transpose(-1, -2)
-        )
+    def compute_attention(self, query, key, gated_contributions=None, **raw_inputs):
+        attn_weights = torch.matmul(query, key.transpose(-1, -2))
+        attn_weights = attn_weights / math.sqrt(query.size(-1))
 
-        attn_weights /= math.sqrt(query.size(-1))
+        if gated_contributions:
+            for name, contrib in gated_contributions.items():
+                q_k = contrib * query
+                k_k = contrib * key
+                branch = torch.matmul(q_k, k_k.transpose(-1, -2)) / math.sqrt(query.size(-1))
+                attn_weights = attn_weights + self.bias_scales[name] * branch
 
-        if abundance_embeddings is not None:
-            bias = self.abundance_bias(
-                abundance_embeddings
-            )
-
-            attn_weights += (
-                    self.abundance_scale
-                    * bias
-            )
-            # if relative_abundance_bias is not None:
-            #
-            #     attn_weights += (
-            #             attn_weights
-            #             + self.abundance_scale * self.relative_abundance_bias(abundance_embeddings)
-            #     )
-            # or
-            #     attn_weights += self.abundance_scale * self.relative_abundance_bias(abundance_embeddings)
+        for name, bias_module in self.biases.items():
+            raw = raw_inputs.get(bias_module.input_key)
+            if raw is None:
+                continue
+            attn_weights = attn_weights + self.bias_scales[name] * bias_module.compute(raw)
 
         return attn_weights
-    def forward(self,
-                hidden_states,
+
+    def forward(self, hidden_states,
                 layer_past=None,
                 attention_mask=None,
                 head_mask=None,
                 encoder_hidden_states=None,
-                encoder_attention_mask=None,
-                use_cache=None,
-                output_attentions=False,
-                **kwargs):
+                encoder_attention_mask=None, use_cache=None,
+                output_attentions=False, **kwargs):
+
         if hidden_states is None:
             raise ValueError("input_embeddings is required")
+
         if encoder_hidden_states is not None:
-            #cross attention
             if not hasattr(self, "q_attn"):
-                raise ValueError(
-                    "Cross-attention weights are missing."
-                )
-            query_states = self.q_attn(
-                hidden_states
-            )
-            key_states, value_states = self.c_attn(
-                encoder_hidden_states
-            ).split(
-                self.split_size,
-                dim=2,
-            )
-
-            attention_mask = (
-                encoder_attention_mask
-            )
-
+                raise ValueError("Cross-attention weights are missing.")
+            query_states = self.q_attn(hidden_states)
+            key_states, value_states = self.c_attn(encoder_hidden_states).split(self.split_size, dim=2)
+            attention_mask = encoder_attention_mask
         else:
-            #self attention
-            query_states, key_states, value_states = self.c_attn(
-                hidden_states
-            ).split(
-                self.split_size,
-                dim=2,
-            )
+            query_states, key_states, value_states = self.c_attn(hidden_states).split(self.split_size, dim=2)
 
-        #split into attention heads
-        query_states = self._split_heads(
-            query_states,
-            self.num_heads,
-            self.head_dim,
-        )
+        raw_inputs = {k: kwargs.get(k) for k in self._bias_input_keys.values()}
 
-        key_states = self._split_heads(
-            key_states,
-            self.num_heads,
-            self.head_dim,
-        )
+        fused_stream = hidden_states
+        gated_contributions = {}
+        self.last_gates = {}
+        any_fusion = False
+        for name, bias_module in self.biases.items():
+            raw = raw_inputs.get(bias_module.input_key)
+            if raw is None or bias_module.fusion is None:
+                continue
+            fused, gate = bias_module.fuse(hidden_states, raw)  # independent: always hidden_states, not fused_stream
+            gated_contributions[name] = fused - hidden_states  # isolate this bias's own term
+            self.last_gates[name] = gate
+            any_fusion = True
 
-        value_states = self._split_heads(
-            value_states,
-            self.num_heads,
-            self.head_dim,
-        )
+        if any_fusion:
+            value_states = value_states * (hidden_states + sum(gated_contributions.values()))
 
-        #handle cached
+        query_states = self._split_heads(query_states, self.num_heads, self.head_dim)
+        key_states = self._split_heads(key_states, self.num_heads, self.head_dim)
+        if any_fusion:
+            query_states = query_states * (hidden_states + sum(gated_contributions.values()))
+            key_states = key_states * (hidden_states + sum(gated_contributions.values()))
+        value_states = self._split_heads(value_states, self.num_heads, self.head_dim)
+
+        # contributions are hidden_size-dim (pre-head-split), same as Q/K/V before splitting — split them too
+        gated_contributions = {
+            name: self._split_heads(c, self.num_heads, self.head_dim)
+            for name, c in gated_contributions.items()
+        }
+
         if layer_past is not None:
             past_key, past_value = layer_past
+            key_states = torch.cat((past_key, key_states), dim=-2)
+            value_states = torch.cat((past_value, value_states), dim=-2)
+        present = (key_states, value_states) if use_cache else None
 
-            key_states = torch.cat(
-                (past_key, key_states),
-                dim=-2,
-            )
-            value_states = torch.cat(
-                (past_value, value_states),
-                dim=-2,
-            )
-        if use_cache:
-            present = (
-                key_states,
-                value_states,
-            )
-        else:
-            present = None
-        abundances = kwargs.get("abundances", None)
-        abundance_embeddings = None
-        if abundances is not None:
-            abundance_embeddings = self.abundance_embedding(abundances)
-
-        #gate here
-        fused_embeddings = None
-        if self.gated:
-            fused_embeddings, gates = self.gated_fusion(hidden_states, abundance_embeddings)
-            value_states = value_states * fused_embeddings
-
-        attn_weights = self.compute_attention(query=query_states, key=key_states, abundance_embeddings=abundance_embeddings, fused_embeddings=fused_embeddings)
+        attn_weights = self.compute_attention(
+            query=query_states, key=key_states,
+            gated_contributions=gated_contributions, **raw_inputs
+        )
 
         if attention_mask is not None:
             attn_weights = attn_weights + attention_mask
-        #softmax
         attn_weights = nn.functional.softmax(attn_weights, dim=-1)
-        attn_weights = nn.functional.dropout( attn_weights)
+        attn_weights = nn.functional.dropout(attn_weights)
         if head_mask is not None:
             attn_weights = attn_weights * head_mask
 
         attn_output = torch.matmul(attn_weights, value_states)
-
-        #merge heads
         attn_output = self._merge_heads(attn_output, self.num_heads, self.head_dim)
-
         attn_output = self.c_proj(attn_output)
-
         attn_output = self.resid_dropout(attn_output)
 
-        outputs = (attn_output,present)
+        outputs = (attn_output, present)
         if output_attentions:
-            outputs += (
-                attn_weights,
-            )
-
+            outputs += (attn_weights,)
         return outputs
 
+
+class AbundanceAwareGPT2Attention(GPT2Attention):
+
+    def __init__(self, config, layer_idx=None, is_cross_attention=False, biases=None):
+        super().__init__(config)
+        self.num_heads = config.num_attention_heads
+        self.is_cross_attention = is_cross_attention
+        self.layer_idx = layer_idx
+        self.biases = nn.ModuleDict()
+        self.bias_scales = nn.ParameterDict()
+        self._bias_input_keys = {}
+
+        for name, cfg in (biases or {}).items():
+            if name not in BIAS_REGISTRY:
+                raise KeyError(f"No bias registered under '{name}'. Available: {list(BIAS_REGISTRY)}")
+            cfg = dict(cfg)
+            init_scale = cfg.pop("init_scale", 0.0)
+            module = BIAS_REGISTRY[name](**cfg)
+            self.biases[name] = module
+            self.bias_scales[name] = nn.Parameter(torch.tensor(float(init_scale)))
+            self._bias_input_keys[name] = module.input_key
+
+    def compute_attention(self, query, key, **raw_inputs):
+        attn_weights = torch.matmul(query, key.transpose(-1, -2))
+        attn_weights = attn_weights / math.sqrt(query.size(-1))
+
+        for name, bias_module in self.biases.items():
+            raw = raw_inputs.get(bias_module.input_key)
+            if raw is None:
+                continue
+            attn_weights = attn_weights + self.bias_scales[name] * bias_module.compute(raw)
+
+        return attn_weights
+
+    def forward(self, hidden_states,
+                layer_past=None,
+                attention_mask=None,
+                head_mask=None,
+                encoder_hidden_states=None,
+                encoder_attention_mask=None, use_cache=None,
+                output_attentions=False, **kwargs):
+
+        if hidden_states is None:
+            raise ValueError("input_embeddings is required")
+
+        if encoder_hidden_states is not None:
+            if not hasattr(self, "q_attn"):
+                raise ValueError("Cross-attention weights are missing.")
+            query_states = self.q_attn(hidden_states)
+            key_states, value_states = self.c_attn(encoder_hidden_states).split(self.split_size, dim=2)
+            attention_mask = encoder_attention_mask
+        else:
+            query_states, key_states, value_states = self.c_attn(hidden_states).split(self.split_size, dim=2)
+
+        raw_inputs = {k: kwargs.get(k) for k in self._bias_input_keys.values()}
+        #encoded_inputs = {k: kwargs.get(k) for k in self._bias_input_keys.values()}
+
+        # --- Gated fusion: pre-head-split, hidden_size-dim, one or more
+        # biases chained sequentially into the value stream.
+        # fused_stream = hidden_states
+        # self.last_gates = {}
+        # any_fusion = False
+        # for name, bias_module in self.biases.items():
+        #     raw = raw_inputs.get(bias_module.input_key)
+        #     if raw is None or bias_module.fusion is None:
+        #         continue
+        #     fused_stream, gate = bias_module.fuse(fused_stream, raw)
+        #     self.last_gates[name] = gate
+        #     any_fusion = True
+        #
+        # if any_fusion:
+        #     value_states = value_states * fused_stream
+
+        #to make fusing independent
+        gated_contributions = {}
+        self.last_gates = {}
+        any_fusion = False
+        for name, bias_module in self.biases.items():
+            raw = raw_inputs.get(bias_module.input_key)
+            if raw is None or bias_module.fusion is None:
+                continue
+            fused, gate = bias_module.fuse(hidden_states, raw)
+            gated_contributions[name] = fused - hidden_states
+            self.last_gates[name] = gate
+            any_fusion = True
+
+        if any_fusion:
+            value_states = value_states * (hidden_states + sum(gated_contributions.values()))
+
+
+        query_states = self._split_heads(query_states, self.num_heads, self.head_dim)
+        key_states = self._split_heads(key_states, self.num_heads, self.head_dim)
+        if any_fusion:
+            query_states = query_states * (hidden_states + sum(gated_contributions.values()))
+            key_states = key_states * (hidden_states + sum(gated_contributions.values()))
+        value_states = self._split_heads(value_states, self.num_heads, self.head_dim)
+
+        if layer_past is not None:
+            past_key, past_value = layer_past
+            key_states = torch.cat((past_key, key_states), dim=-2)
+            value_states = torch.cat((past_value, value_states), dim=-2)
+        present = (key_states, value_states) if use_cache else None
+
+        attn_weights = self.compute_attention(query=query_states, key=key_states, **raw_inputs)
+
+        if attention_mask is not None:
+            attn_weights = attn_weights + attention_mask
+        attn_weights = nn.functional.softmax(attn_weights, dim=-1)
+        attn_weights = nn.functional.dropout(attn_weights)
+        if head_mask is not None:
+            attn_weights = attn_weights * head_mask
+
+        attn_output = torch.matmul(attn_weights, value_states)
+        attn_output = self._merge_heads(attn_output, self.num_heads, self.head_dim)
+        attn_output = self.c_proj(attn_output)
+        attn_output = self.resid_dropout(attn_output)
+
+        outputs = (attn_output, present)
+        if output_attentions:
+            outputs += (attn_weights,)
+        return outputs
 class AbundanceAwareBlock(GPT2Block):
     def __init__(
             self,
@@ -213,14 +265,20 @@ class AbundanceAwareBlock(GPT2Block):
 
         old_attention = self.attn
 
-        self.attn = (
-            AbundanceAwareGPT2Attention(
-                config,
-                is_cross_attention=False,
-                layer_idx=layer_idx,
-            )
-        )
+        self.attn = AbundanceAwareGPT2Attention(
+            config,
+            biases={
+                "abundance": dict(
+                    hidden_size=config.hidden_size,
+                    num_heads=config.num_attention_heads,
+                    rank=16,
+                    encoder=AbundanceEncoder(config.n_embd),
+                    use_gated_fusion=True,
+                    init_scale=0.0,
+                ),
 
+            },
+        )
         # Copy pretrained attention parameters
         #
         # strict=False is important because the new

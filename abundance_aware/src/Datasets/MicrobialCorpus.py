@@ -182,25 +182,26 @@ class MicrobialCorpusWithLabelTokens(Dataset):
 
 
 if __name__ == '__main__':
+    pass
     # create MicroCorpus using MGnify data
-    special_toks = ['<pad>', '<mask>']
-    abu = pd.read_hdf('data/abu_processed.h5', 'genus')
-    genus_toks = abu.columns.tolist()
-    toks = special_toks + genus_toks
-    tokenizer = MicrobialTokenizer(toks)
-    dump(tokenizer, open('MicrobialTokenizer.pkl', 'wb'))
-
-    corpus = MicrobialCorpus(abu=abu, tokenizer=tokenizer, preprocess=False)
-
-    dump(corpus, open('corpus/MicroCorpus_general_512.pkl', 'wb'))
-
-    # human corpus
-    meta = pd.read_csv('~/data5/download/MGnify/metadata.csv', index_col=0)
-    meta = meta['Env'].str.split(':', expand=True)[1]
-    meta = meta[meta == 'Host-associated']
-    human_abu = abu.loc[abu.index.isin(meta.index)]
-    human_corpus = MicrobialCorpus(abu=human_abu, tokenizer=tokenizer, preprocess=False)
-    dump(human_corpus, open('corpus/MicroCorpus_human_512.pkl', 'wb'))
+    # special_toks = ['<pad>', '<mask>']
+    # abu = pd.read_hdf('data/abu_processed.h5', 'genus')
+    # genus_toks = abu.columns.tolist()
+    # toks = special_toks + genus_toks
+    # tokenizer = MicrobialTokenizer(toks)
+    # dump(tokenizer, open('MicrobialTokenizer.pkl', 'wb'))
+    #
+    # corpus = MicrobialCorpus(abu=abu, tokenizer=tokenizer, preprocess=False)
+    #
+    # dump(corpus, open('corpus/MicroCorpus_general_512.pkl', 'wb'))
+    #
+    # # human corpus
+    # meta = pd.read_csv('~/data5/download/MGnify/metadata.csv', index_col=0)
+    # meta = meta['Env'].str.split(':', expand=True)[1]
+    # meta = meta[meta == 'Host-associated']
+    # human_abu = abu.loc[abu.index.isin(meta.index)]
+    # human_corpus = MicrobialCorpus(abu=human_abu, tokenizer=tokenizer, preprocess=False)
+    # dump(human_corpus, open('corpus/MicroCorpus_human_512.pkl', 'wb'))
 
     # microbes = abu.columns.tolist()
     # key_list.extend(microbes)

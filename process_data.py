@@ -27,7 +27,7 @@ def main():
 
     parser.add_argument(
         "normalize",
-        default=False,
+        default=True,
         help="Whether to normalize the abundance matrix",
     )
 
