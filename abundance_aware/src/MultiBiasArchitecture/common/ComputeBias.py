@@ -1,8 +1,6 @@
-import math
-import torch
 import torch.nn as nn
 
-from abundance_aware.src.common.GatedFusion import GatedFusion
+from abundance_aware.src.MultiBiasArchitecture.common.GatedFusion import GatedFusion
 
 # --------------------------------------------------------------------------
 # Registry

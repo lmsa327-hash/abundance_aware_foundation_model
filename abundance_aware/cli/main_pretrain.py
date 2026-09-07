@@ -6,7 +6,6 @@ from pickle import load, dump
 import os
 import warnings
 from transformers import (
-    GPT2LMHeadModel,
     GPT2Config,
     Trainer,
     TrainingArguments,
@@ -15,7 +14,7 @@ from transformers import (
 from transformers.trainer_callback import EarlyStoppingCallback
 
 from abundance_aware.src.Datasets.MicrobialCorpus import MicrobialCorpusWithLabelTokens
-from abundance_aware.src.models.AbundanceAwareModel import AbundanceAwareGPT2LMHeadModel
+from abundance_aware.src.Abundance.models.AbundanceAwareModel import AbundanceAwareGPT2LMHeadModel
 
 warnings.filterwarnings("ignore")
 

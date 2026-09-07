@@ -5,6 +5,8 @@ import pandas as pd
 import torch
 
 from abundance_aware.src.tokenizers.MicrobialTokenizer import MicrobialTokenizer
+from abundance_aware.src.utils.Contants import TAXONOMY_BY_TOKEN_FILE
+from abundance_aware.src.utils.Utils import get_pkg_resource_path
 
 TAXONOMIC_LEVELS = [
     "Kingdom",
@@ -14,6 +16,7 @@ TAXONOMIC_LEVELS = [
     "Family",
     "Genus",
 ]
+#1
 def get_genus_hierarchy(taxonomy_file: Path, resources_dir: Path):
     df = pd.read_csv(taxonomy_file)
     df = df[TAXONOMIC_LEVELS].copy()
@@ -92,7 +95,7 @@ def tokenize_hierarchy(genus_hierarchy: dict, tokenizer: MicrobialTokenizer):
         genus_token_to_id[genus] = token_id
     return genus_token_to_id
 
-
+#2
 def get_taxonomy_by_token(genus_hierarchy, tokenizer: MicrobialTokenizer, resources_dir: Path):
     vocab_size = len(tokenizer)
 
@@ -116,15 +119,17 @@ def get_taxonomy_by_token(genus_hierarchy, tokenizer: MicrobialTokenizer, resour
         )
     torch.save(
         taxonomy_by_token,
-        resources_dir / "taxonomy_by_token.pt",
+        resources_dir / TAXONOMY_BY_TOKEN_FILE,
     )
 
     # taxonomy_ids = taxonomy_by_token[input_ids]
     return taxonomy_by_token
 
+#3
+def load_taxonomy_by_token():
+    taxonomy_by_token = torch.load(get_pkg_resource_path(TAXONOMY_BY_TOKEN_FILE))
+    # taxonomy_by_token = torch.load(
+    #     resources_dir / "taxonomy_by_token.pt"
+    # )
 
-def load_taxonomy_by_token(resources_dir: Path):
-    taxonomy_by_token = torch.load(
-        resources_dir / "taxonomy_by_token.pt"
-    )
     return taxonomy_by_token

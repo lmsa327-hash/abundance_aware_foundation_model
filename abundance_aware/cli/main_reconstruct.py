@@ -1,6 +1,5 @@
 
 import pandas as pd
-import numpy as np
 import os
 import torch
 from pickle import load
@@ -11,7 +10,7 @@ from tqdm import tqdm
 
 from abundance_aware.src.Datasets.CustomUnPickler import CustomUnpickler
 from abundance_aware.src.Datasets.MicrobialCorpus import MicrobialCorpus
-from abundance_aware.src.models.Reconstructor import reconstructorNet, PositionEmbedding
+from abundance_aware.src.Abundance.models.Reconstructor import reconstructorNet, PositionEmbedding
 from abundance_aware.src.utils.TrainingUtils import get_Z
 from abundance_aware.src.utils.Utils import find_pkg_resource
 

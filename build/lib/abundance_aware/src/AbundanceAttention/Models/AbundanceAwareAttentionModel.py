@@ -1,5 +1,4 @@
 import math
-from typing import Optional
 
 import torch
 from torch import nn
@@ -8,10 +7,9 @@ from transformers.modeling_outputs import CausalLMOutputWithCrossAttentions
 from transformers.models.gpt2.modeling_gpt2 import GPT2Attention, GPT2Block, GPT2Model
 
 
-from abundance_aware.src.AbundanceAttention.Models.AbundanceBias import AbundanceEncoder, HeadWiseAbundanceBias, \
-    RelativeAbundanceBias
-from abundance_aware.src.AbundanceAttention.Models.GatedFusionModule import GatedAbundanceFusion
-from abundance_aware.src.models.AbundanceAwareModel import AbundanceAwareGPT2LMHeadModel
+from abundance_aware.src.MultiBiasArchitecture.AbundanceAttention import  HeadWiseAbundanceBias
+from abundance_aware.src.MultiBiasArchitecture.Models.GatedFusionModule import GatedAbundanceFusion
+from abundance_aware.src.Abundance.models.AbundanceEncoder import AbundanceEncoder
 
 
 class AbundanceAwareGPT2Attention(GPT2Attention):

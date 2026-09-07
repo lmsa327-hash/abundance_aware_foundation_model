@@ -1,10 +1,9 @@
-import os
 import  pandas as pd
 import torch
 from pickle import load, dump
 
 from abundance_aware.src.Datasets.CustomUnPickler import CustomUnpickler
-from abundance_aware.src.models.AbundanceAwareModel import AbundanceAwareGPT2LMHeadModel
+from abundance_aware.src.Abundance.models.AbundanceAwareModel import AbundanceAwareGPT2LMHeadModel
 from abundance_aware.src.utils.TrainingUtils import gen_num_sent
 from abundance_aware.src.utils.Utils import find_pkg_resource
 

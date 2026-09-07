@@ -8,6 +8,7 @@ import pandas as pd
 import torch
 
 from abundance_aware.src.tokenizers.MicrobialTokenizer import MicrobialTokenizer
+from abundance_aware.src.utils.Utils import find_pkg_resource
 
 TAXONOMIC_LEVELS = [
     "Kingdom",
@@ -188,12 +189,7 @@ def main():
     output_file = Path("MicrobialHierarchyTokenizer.pkl")
     with output_file.open("wb") as f:
         dump(tokenizer, f)
-
-    # Copy into resources/
-    resources_dir = Path("abundance_aware/resources")
-    resources_dir.mkdir(parents=True, exist_ok=True)
-
-    resources_file = resources_dir / "MicrobialHierarchyTokenizer.pkl"
+    resources_file = find_pkg_resource("resources/MicrobialHierarchyTokenizer.pkl")
     shutil.copy2(output_file, resources_file)
 
     print(f"Tokenizer created: {resources_file}")

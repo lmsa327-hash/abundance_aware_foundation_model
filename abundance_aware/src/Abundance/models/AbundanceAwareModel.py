@@ -1,11 +1,10 @@
-import math
 from typing import Optional
 import torch
 import torch.nn as nn
 from transformers import GPT2LMHeadModel, GPT2ForSequenceClassification
 
-from abundance_aware.src.models.AbundanceEncoder import AbundanceEncoder, AbundanceEncoderWithFiLM
-from abundance_aware.src.models.GatedAbundance import GatedAbundanceFusion
+from abundance_aware.src.Abundance.models.AbundanceEncoder import AbundanceEncoder, AbundanceEncoderWithFiLM
+from abundance_aware.src.Abundance.models.GatedAbundance import GatedAbundanceFusion
 
 
 class AbundanceAwareGPT2LMHeadModel(GPT2LMHeadModel):

@@ -1,14 +1,12 @@
-import math
-
 import torch
 from torch import nn
 
-from abundance_aware.src.common.ComputeBias import register_bias, AttentionBias
+from abundance_aware.src.MultiBiasArchitecture.common.ComputeBias import register_bias, AttentionBias
 
 
 
-ABUNDANCE_BIAS = "abundances"
-@register_bias("abundance")
+ABUNDANCE_BIAS = "abundance"
+@register_bias(ABUNDANCE_BIAS)
 class HeadWiseAbundanceBias(AttentionBias):
     input_key = ABUNDANCE_BIAS
 
@@ -34,7 +32,7 @@ class HeadWiseAbundanceBias(AttentionBias):
         k = self.key_proj(abundance_embeddings).view(B, N, self.num_heads, self.rank).transpose(1, 2)
         return torch.matmul(q, k.transpose(-1, -2))
 
-@register_bias("abundance")
+@register_bias("abundances")
 class AbundanceBias(AttentionBias):
 
     def __init__(self, hidden_size):
@@ -45,7 +43,8 @@ class AbundanceBias(AttentionBias):
             nn.GELU(),
             nn.Linear(hidden_size, 1),
         )
-
+    def encode(self, abundance_embeddings):
+        return self.encoder(abundance_embeddings) if self.encoder is not None else abundance_embeddings
     def forward(self, abundance_embeddings):
 
         B, N, D = abundance_embeddings.shape

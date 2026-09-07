@@ -1,7 +1,6 @@
 # run under the root directory of the project
 import os
 import pandas as pd
-import numpy as np
 import torch
 from torch.utils.data import random_split
 
@@ -9,14 +8,13 @@ from torch.utils.data import random_split
 from pickle import load, dump
 from sklearn.preprocessing import OneHotEncoder
 from transformers import (
-    GPT2ForSequenceClassification,
     Trainer,
     TrainingArguments,
 )
 from transformers.trainer_callback import EarlyStoppingCallback
 
 from abundance_aware.src.Datasets.MicrobialCorpus import SequenceClassificationDataset
-from abundance_aware.src.models.AbundanceAwareModel import AbundanceAwareGPT2ForSequenceClassification
+from abundance_aware.src.Abundance.models.AbundanceAwareModel import AbundanceAwareGPT2ForSequenceClassification
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

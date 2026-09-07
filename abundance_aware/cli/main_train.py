@@ -1,7 +1,6 @@
 # run under the root directory of the project
 import os
 import pandas as pd
-import numpy as np
 import torch
 from torch.utils.data import random_split
 
@@ -15,7 +14,7 @@ from transformers import (
 from transformers.trainer_callback import EarlyStoppingCallback
 
 from abundance_aware.src.Datasets.MicrobialCorpus import SequenceClassificationDataset
-from abundance_aware.src.models.AbundanceAwareModel import AbundanceAwareGPT2ForSequenceClassification
+from abundance_aware.src.Abundance.models.AbundanceAwareModel import AbundanceAwareGPT2ForSequenceClassification
 
 
 def train(cfg, args):

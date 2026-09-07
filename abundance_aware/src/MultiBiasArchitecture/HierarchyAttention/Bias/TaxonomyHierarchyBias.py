@@ -1,11 +1,11 @@
 import torch
 from torch import nn
 
-from abundance_aware.src.common.ComputeBias import AttentionBias, register_bias
+from abundance_aware.src.MultiBiasArchitecture.common.ComputeBias import AttentionBias, register_bias
 
 
-HIERARCHY_BIAS = 'hierarchies'
-@register_bias("hierarchy")
+HIERARCHY_BIAS = 'taxonomy'
+@register_bias(HIERARCHY_BIAS)
 class TaxonomyHierarchyBias(AttentionBias):
     input_key = HIERARCHY_BIAS
 
