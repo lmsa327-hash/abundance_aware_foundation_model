@@ -2,7 +2,11 @@ import torch
 from torch import nn
 from transformers.models.gpt2.modeling_gpt2 import  GPT2Model
 
+from abundance_aware.src.Abundance.models.AbundanceEncoder import AbundanceEncoderWithFiLM
 from abundance_aware.src.MultiBiasArchitecture.AbundanceAttention.BIas.AbundanceBias import ABUNDANCE_BIAS
+from abundance_aware.src.MultiBiasArchitecture.HierarchyAttention.Bias.TaxonomyHierarchyBias import HIERARCHY_BIAS
+from abundance_aware.src.MultiBiasArchitecture.HierarchyAttention.Bias.TaxonomyHierarchyEncoder import \
+    TaxonomyHierarchyEncoder
 from abundance_aware.src.MultiBiasArchitecture.HierarchyAttention.utils.Utils import load_taxonomy_by_token
 from abundance_aware.src.MultiBiasArchitecture.Models.MultiBiasBlock import MultiBiasBlock
 
@@ -16,6 +20,26 @@ class MultiBiasGPT2Model(GPT2Model):
         old_blocks = self.h
 
         new_blocks = []
+        self.biases = {
+                ABUNDANCE_BIAS: dict(
+                    hidden_size=config.hidden_size,
+                    num_heads=config.num_attention_heads,
+                    rank=16,
+                    #encoder=AbundanceEncoder(config.n_embd),
+                    encoder=AbundanceEncoderWithFiLM(config.n_embd),
+                    use_gated_fusion=True,
+                    init_scale=0.0,
+                ),
+            HIERARCHY_BIAS: dict(
+                    hidden_size=config.hidden_size,
+                    num_heads=config.num_attention_heads,
+                    rank=16,
+                    encoder=TaxonomyHierarchyEncoder(config.n_embd),
+                    use_gated_fusion=True,
+                    init_scale=0.0,
+                )
+
+            }
 
         for i, old_block in enumerate(
             old_blocks
@@ -24,6 +48,7 @@ class MultiBiasGPT2Model(GPT2Model):
             new_block = (
                 MultiBiasBlock(
                     config,
+                    biases=self.biases,
                     layer_idx=i,
                 )
             )
@@ -109,40 +134,21 @@ class MultiBiasGPT2Model(GPT2Model):
                 "You have to specify either "
                 "input_ids or inputs_embeds"
             )
+        #validate inputs
+        for name, bias_module in self.biases.items():
+            bias_inputs = kwargs.pop(bias_module.input_key, None)
+            if bias_inputs is None:
+                continue
+            valid =  bias_module.validate_input(bias_inputs,batch_size = batch_size, input_shape = input_shape)
+            kwargs[bias_module.input_key] = bias_module.input_to_device(bias_inputs,torch.float32,
+                                                                        input_ids.device if input_ids is not None else inputs_embeds.device)
 
-        #validate abundance
-        abundance = kwargs.get(ABUNDANCE_BIAS, None)
-        if abundance is not None:
-
-            if abundance.dim() != 2:
-                raise ValueError(
-                    "abundance must have shape "
-                    "[batch_size, sequence_length]"
-                )
-
-            if abundance.shape[0] != batch_size:
-                raise ValueError(
-                    "Abundance batch dimension does "
-                    "not match input_ids."
-                )
-
-            if abundance.shape[1] != input_shape[1]:
-                raise ValueError(
-                    "Abundance sequence length does "
-                    "not match input_ids."
-                )
-
-            abundance = abundance.to(
-                device=input_ids.device
-                if input_ids is not None
-                else inputs_embeds.device,
-                dtype=torch.float32,
-            )
         #taxonomy_hierarchy
         tax_by_token = load_taxonomy_by_token()
         taxonomy_ids = tax_by_token[input_ids]
         if taxonomy_ids is not None:
             pass
+
         #embeddings
         if inputs_embeds is None:
             inputs_embeds = self.wte(
@@ -265,7 +271,7 @@ class MultiBiasGPT2Model(GPT2Model):
                 encoder_attention_mask = encoder_attention_mask,
                 use_cache = use_cache,
                 output_attentions = output_attentions,
-                abundance = abundance,
+                **kwargs
             )
             hidden_states = outputs[0]
             if use_cache:

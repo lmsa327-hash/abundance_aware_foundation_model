@@ -9,7 +9,7 @@ from pickle import load, dump
 from sklearn.preprocessing import OneHotEncoder
 from transformers import (
     Trainer,
-    TrainingArguments,
+    TrainingArguments, GPT2ForSequenceClassification,
 )
 from transformers.trainer_callback import EarlyStoppingCallback
 
@@ -41,7 +41,8 @@ def finetune(cfg, args):
     )
 
     # set model config
-    model = AbundanceAwareGPT2ForSequenceClassification.from_pretrained(args.model, num_labels=len(le.categories_[0]))
+    model = GPT2ForSequenceClassification.from_pretrained(args.model, num_labels=len(le.categories_[0])).to(device)
+    # model = AbundanceAwareGPT2ForSequenceClassification.from_pretrained(args.model, num_labels=len(le.categories_[0]))
 
     # set training args
     training_args = {

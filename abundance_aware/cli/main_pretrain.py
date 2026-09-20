@@ -9,7 +9,7 @@ from transformers import (
     GPT2Config,
     Trainer,
     TrainingArguments,
-    DataCollatorForLanguageModeling,
+    DataCollatorForLanguageModeling, GPT2LMHeadModel,
 )
 from transformers.trainer_callback import EarlyStoppingCallback
 
@@ -86,11 +86,12 @@ def pretrain(cfg, args):
     )
 
     if args.from_scratch:
-        model = AbundanceAwareGPT2LMHeadModel(config).to(device)
+        model = GPT2LMHeadModel(config).to(device)
+        #model = AbundanceAwareGPT2LMHeadModel(config).to(device)
         print("Training from scratch.")
     else:
-
-        model = AbundanceAwareGPT2LMHeadModel.from_pretrained(args.model).to(device)
+        model = GPT2LMHeadModel.from_pretrained(args.model).to(device)
+        #model = AbundanceAwareGPT2LMHeadModel.from_pretrained(args.model).to(device)
 
     if args.with_label:
         model.resize_token_embeddings(len(tokenizer))

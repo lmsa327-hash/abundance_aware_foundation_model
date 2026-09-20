@@ -20,7 +20,8 @@ class MicrobialCorpus(Dataset):
                  phylogeny_path=None,
                  key='genus',
                  max_len=512,
-                 preprocess=True):
+                 preprocess=True, include_abundance = False):
+        self.include_abundance = include_abundance
         if phylogeny_path is None:
             phylogeny_path = find_pkg_resource("resources/phylogeny.csv")
         if data_path:
@@ -58,18 +59,24 @@ class MicrobialCorpus(Dataset):
             Max length is {max(length_list)}.\n\
             Average length is {np.mean(length_list)}.\n\
             Min length is {min(length_list)}.')
-        self.abundances = self.data
+        if self.include_abundance:
+            self.abundances = self.data
         self.tokens = torch.LongTensor(tokens_list)
 
     def __getitem__(self, index):
         attention_mask = torch.ones(self.tokens[index].shape)
         attention_mask[self.tokens[index] == self.tokenizer.pad_token_id] = 0
         tokens = self.tokens[index].clone()
-        abundance =self.abundances[index].clone()
-        return {'input_ids': torch.tensor(tokens),
-                'attention_mask': attention_mask,
-                "abundances": torch.tensor(abundance),
-                }
+        if self.include_abundance:
+            abundance =self.abundances[index].clone()
+            return {'input_ids': torch.tensor(tokens),
+                    'attention_mask': attention_mask,
+                    "abundances": torch.tensor(abundance),
+                    }
+        else:
+            return {'input_ids': torch.tensor(tokens),
+                    'attention_mask': attention_mask
+                    }
 
     def __len__(self):
         return len(self.tokens)
@@ -126,7 +133,7 @@ class MicrobialCorpus(Dataset):
 
 
 class SequenceClassificationDataset(Dataset):
-    def __init__(self, seq, mask, abundances, labels):
+    def __init__(self, seq, mask, labels, abundances = None):
         self.seq = seq
         self.mask = mask
         self.labels = labels
@@ -136,16 +143,23 @@ class SequenceClassificationDataset(Dataset):
         return len(self.labels)
 
     def __getitem__(self, idx):
-        return {
-            "input_ids": torch.tensor(self.seq[idx]),
-            "attention_mask": torch.tensor(self.mask[idx]),
-            "abundances": torch.tensor(self.abundances[idx]),
-            "labels": torch.tensor(self.labels[idx])
-        }
+        if self.abundances is not None:
+            return {
+                "input_ids": torch.tensor(self.seq[idx]),
+                "attention_mask": torch.tensor(self.mask[idx]),
+                "abundances": torch.tensor(self.abundances[idx]),
+                "labels": torch.tensor(self.labels[idx])
+            }
+        else:
+            return {
+                "input_ids": torch.tensor(self.seq[idx]),
+                "attention_mask": torch.tensor(self.mask[idx]),
+                "labels": torch.tensor(self.labels[idx])
+            }
 
 
 class MicrobialCorpusWithLabelTokens(Dataset):
-    def __init__(self, tokens, abundances, labels, tokenizer):
+    def __init__(self, tokens, labels, tokenizer, abundances= None):
         self.tokens = tokens
         self.tokenizer = tokenizer
         self.abundances = abundances
@@ -158,14 +172,15 @@ class MicrobialCorpusWithLabelTokens(Dataset):
             device=self.abundances.device,
             dtype=self.abundances.dtype,
         )
-        self.abundances = torch.cat(
-            (
-                self.abundances[:, :1],  # BOS abundance
-                label_abundance,  # label abundance
-                self.abundances[:, 1:-1],  # microbial abundances
-            ),
-            dim=1,
-        )
+        if self.abundances is not None:
+            self.abundances = torch.cat(
+                (
+                    self.abundances[:, :1],  # BOS abundance
+                    label_abundance,  # label abundance
+                    self.abundances[:, 1:-1],  # microbial abundances
+                ),
+                dim=1,
+            )
 
     def __len__(self):
         return self.tokens.shape[0]
@@ -174,11 +189,15 @@ class MicrobialCorpusWithLabelTokens(Dataset):
         attention_mask = torch.ones(self.tokens[idx].shape)
         attention_mask[self.tokens[idx] == self.tokenizer.pad_token_id] = 0
         tokens = self.tokens[idx].clone()
-        abundance =self.abundances[idx].clone()
-
-        return {'input_ids': torch.tensor(tokens),
-                'attention_mask': attention_mask,
-                'abundances': torch.tensor(abundance)}
+        if self.abundances is not None:
+            abundance =self.abundances[idx].clone()
+            return {'input_ids': torch.tensor(tokens),
+                    'attention_mask': attention_mask,
+                    'abundances': torch.tensor(abundance)}
+        else:
+            return {'input_ids': torch.tensor(tokens),
+                    'attention_mask': attention_mask
+                    }
 
 
 if __name__ == '__main__':

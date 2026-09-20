@@ -2,6 +2,8 @@ import  pandas as pd
 import torch
 from pickle import load, dump
 
+from transformers import GPT2LMHeadModel
+
 from abundance_aware.src.Datasets.CustomUnPickler import CustomUnpickler
 from abundance_aware.src.Abundance.models.AbundanceAwareModel import AbundanceAwareGPT2LMHeadModel
 from abundance_aware.src.utils.TrainingUtils import gen_num_sent
@@ -13,7 +15,8 @@ def generate(cfg, args):
         unpickler = CustomUnpickler(f)
         tokenizer = unpickler.load()
     extended_tokenizer = load(open(f"{args.model}/tokenizer.pkl", "rb"))
-    model = AbundanceAwareGPT2LMHeadModel.from_pretrained(args.model)
+    model = GPT2LMHeadModel.from_pretrained(args.model)
+    #model = AbundanceAwareGPT2LMHeadModel.from_pretrained(args.model)
     bad_words = set(extended_tokenizer.vocab.values()) - set(tokenizer.vocab.values())
     bad_words = [[word] for word in bad_words]
     

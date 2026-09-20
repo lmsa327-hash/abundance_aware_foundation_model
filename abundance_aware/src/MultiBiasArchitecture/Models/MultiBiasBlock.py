@@ -10,6 +10,7 @@ class MultiBiasBlock(GPT2Block):
     def __init__(
             self,
             config,
+            biases,
             layer_idx=None,
     ):
         super().__init__(
@@ -23,18 +24,7 @@ class MultiBiasBlock(GPT2Block):
 
         self.attn = MultiBiasGPT2Attention(
             config,
-            biases={
-                ABUNDANCE_BIAS: dict(
-                    hidden_size=config.hidden_size,
-                    num_heads=config.num_attention_heads,
-                    rank=16,
-                    #encoder=AbundanceEncoder(config.n_embd),
-                    encoder=AbundanceEncoderWithFiLM(config.n_embd),
-                    use_gated_fusion=True,
-                    init_scale=0.0,
-                ),
-
-            },
+            biases= biases,
         )
         # Copy pretrained attention parameters
         #

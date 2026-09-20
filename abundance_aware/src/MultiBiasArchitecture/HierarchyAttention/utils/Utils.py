@@ -5,7 +5,7 @@ import pandas as pd
 import torch
 
 from abundance_aware.src.tokenizers.MicrobialTokenizer import MicrobialTokenizer
-from abundance_aware.src.utils.Contants import TAXONOMY_BY_TOKEN_FILE
+from abundance_aware.src.utils.Contants import TAXONOMY_BY_TOKEN_FILE, TAXONOMY_VOCAB_FILE
 from abundance_aware.src.utils.Utils import get_pkg_resource_path
 
 TAXONOMIC_LEVELS = [
@@ -33,15 +33,14 @@ def get_genus_hierarchy(taxonomy_file: Path, resources_dir: Path):
         vocab = {
             "<UNK>": 0
         }
-        next_id = 1
-        for value in unique_values:
+
+        for next_id, value in enumerate(unique_values, start=1):
             if value == "<UNK>":
                 continue
             vocab[value] = next_id
-            next_id += 1
         taxonomy_vocab[level] = vocab
     with open(
-            resources_dir / "taxonomy_vocab.json",
+            resources_dir / TAXONOMY_VOCAB_FILE,
             "w",
     ) as f:
 
@@ -58,8 +57,9 @@ def get_genus_hierarchy(taxonomy_file: Path, resources_dir: Path):
             group[TAXONOMIC_LEVELS[:-1]]
             .value_counts()
         )
-
+        total = lineage_counts.sum()
         most_common_lineage = lineage_counts.index[0]
+        confidence = most_common_lineage / total
         hierarchy = []
         for level, value in zip(
                 TAXONOMIC_LEVELS[:-1],
@@ -133,3 +133,16 @@ def load_taxonomy_by_token():
     # )
 
     return taxonomy_by_token
+
+def load_vocab_sizes():
+    vocab_path = get_pkg_resource_path(TAXONOMY_VOCAB_FILE)
+
+    with open(vocab_path, "r") as f:
+        taxonomy_vocab = json.load(f)
+
+    vocab_sizes = {
+        level: len(taxonomy_vocab[level])
+        for level in TAXONOMIC_LEVELS
+    }
+
+    return vocab_sizes

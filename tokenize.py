@@ -26,7 +26,6 @@ def main():
     args = parser.parse_args()
 
     special_toks = ["<pad>", "<mask>"]
-
     abu = pd.read_hdf(args.input, args.key)
     genus_toks = abu.columns.tolist()
 

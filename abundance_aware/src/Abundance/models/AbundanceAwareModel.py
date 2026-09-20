@@ -4,12 +4,19 @@ import torch.nn as nn
 from transformers import GPT2LMHeadModel, GPT2ForSequenceClassification
 
 from abundance_aware.src.Abundance.models.AbundanceEncoder import AbundanceEncoder, AbundanceEncoderWithFiLM
-from abundance_aware.src.Abundance.models.GatedAbundance import GatedAbundanceFusion
+from abundance_aware.src.Abundance.models.GatedAbundance import GatedAbundanceFusion, GatedHierarchyFusion
+from abundance_aware.src.MultiBiasArchitecture.HierarchyAttention.Bias.TaxonomyHierarchyEncoder import \
+    TaxonomyHierarchyEncoder
+from abundance_aware.src.MultiBiasArchitecture.HierarchyAttention.utils.Utils import load_taxonomy_by_token
 
 
 class AbundanceAwareGPT2LMHeadModel(GPT2LMHeadModel):
-    def __init__(self, config, withFilm = False, gated = False):
+    def __init__(self, config,
+                 hierarchy = False,
+                 withFilm = False,
+                 gated = False):
         super().__init__(config)
+        self.hierarchy = hierarchy
         self.film = withFilm
         self.gated = gated
         if self.film:
@@ -20,6 +27,9 @@ class AbundanceAwareGPT2LMHeadModel(GPT2LMHeadModel):
             self.abundance_fusion = GatedAbundanceFusion(
                 config.n_embd
             )
+            self.hierarchy_fusion = GatedHierarchyFusion(config.n_embd)
+        if hierarchy:
+            self.hierarchy_encoder = TaxonomyHierarchyEncoder(config.n_embd)
 
     @classmethod
     def from_pretrained(cls, *args, **kwargs):
@@ -49,13 +59,31 @@ class AbundanceAwareGPT2LMHeadModel(GPT2LMHeadModel):
                     abundance_embeddings
                 )
         return embeddings
-    def forward(self, input_ids=None, abundances: Optional[torch.Tensor] = None,
-                attention_mask=None, labels=None, **kwargs):
+    def condition_on_hierarchy(self, embeddings, input_ids):
+        # taxonomy_hierarchy
+        tax_by_token = load_taxonomy_by_token()
+        taxonomy_ids = tax_by_token[input_ids]
+        hierarchy_embeddings = self.hierarchy_encoder(taxonomy_ids)
+        embeddings = embeddings + hierarchy_embeddings
+        if self.gated:
+            embeddings, gate = self.hierarchy_fusion(
+                embeddings,
+                hierarchy_embeddings
+            )
+        return embeddings
+    def forward(self,
+                input_ids=None,
+                attention_mask=None,
+                labels=None,
+                **kwargs):
         if input_ids is None:
             raise ValueError("input_ids is required")
         inputs_embeds = self.transformer.wte(input_ids)
+        abundances = kwargs.pop("abundances", None)
         if abundances is not None:
            inputs_embeds = self.condition_on_abundance(abundances, inputs_embeds)
+        if self.hierarchy:
+         inputs_embeds = self.condition_on_hierarchy(inputs_embeds, input_ids)
 
         return super().forward(
             inputs_embeds=inputs_embeds,
@@ -73,6 +101,7 @@ class AbundanceAwareGPT2ForSequenceClassification(GPT2ForSequenceClassification)
             self.abundance_embedding = AbundanceEncoderWithFiLM(config.n_embd)
         else:
             self.abundance_embedding = AbundanceEncoder(config.n_embd)
+        self.hierarchy_encoder = TaxonomyHierarchyEncoder(config.n_embd)
 
     @classmethod
     def from_pretrained(cls, *args, **kwargs):
@@ -88,14 +117,28 @@ class AbundanceAwareGPT2ForSequenceClassification(GPT2ForSequenceClassification)
         else:
             embeddings = embeddings + self.abundance_embedding(abundances)
         return embeddings
-    def forward(self, input_ids=None, abundances: Optional[torch.Tensor] = None,
-                attention_mask=None, labels=None, **kwargs):
+
+    def condition_on_hierarchy(self, embeddings, input_ids):
+        # taxonomy_hierarchy
+        tax_by_token = load_taxonomy_by_token()
+        taxonomy_ids = tax_by_token[input_ids]
+        hierarchy_embeddings = self.hierarchy_encoder(taxonomy_ids)
+        embeddings = embeddings + hierarchy_embeddings
+        return embeddings
+    def forward(self, input_ids=None,
+                abundances: Optional[torch.Tensor] = None,
+                attention_mask=None,
+                labels=None,
+                **kwargs):
         if input_ids is None:
             raise ValueError("input_ids is required")
         inputs_embeds = self.transformer.wte(input_ids)
         if abundances is not None:
             inputs_embeds = self.condition_on_abundance(abundances, inputs_embeds)
+        inputs_embeds = self.condition_on_hierarchy(inputs_embeds, input_ids)
+
         return super().forward(
-            inputs_embeds=inputs_embeds, attention_mask=attention_mask,
+            inputs_embeds=inputs_embeds,
+            attention_mask=attention_mask,
             labels=labels, **kwargs,
         )

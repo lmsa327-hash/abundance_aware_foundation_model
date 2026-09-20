@@ -145,6 +145,7 @@ class MultiBiasGPT2Attention(GPT2Attention):
             attn_weights = attn_weights + self.bias_scales[name] * bias_module.compute_from_encoded(encoded)
 
         return attn_weights
+
     def forward(self, hidden_states,
                 layer_past=None,
                 attention_mask=None,

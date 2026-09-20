@@ -25,6 +25,16 @@ class TaxonomyHierarchyBias(AttentionBias):
     def encode(self, hierarchy_embeddings):
         return self.encoder(hierarchy_embeddings) if self.encoder is not None else hierarchy_embeddings
 
+    def input_to_device(self, taxonomy, dtype, device):
+        taxonomy = taxonomy.to(
+            device=device,
+            dtype=dtype,
+        )
+        return taxonomy
+
+    def validate_input(self, taxonomy, **kwargs):
+        return True
+
     def forward(self, hierarchy_embeddings):
         B, N, _ = hierarchy_embeddings.shape
         q = self.query_proj(hierarchy_embeddings).view(B, N, self.num_heads, self.rank).transpose(1, 2)

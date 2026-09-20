@@ -5,7 +5,7 @@ from abundance_aware.src.MultiBiasArchitecture.common.ComputeBias import registe
 
 
 
-ABUNDANCE_BIAS = "abundance"
+ABUNDANCE_BIAS = "abundances"
 @register_bias(ABUNDANCE_BIAS)
 class HeadWiseAbundanceBias(AttentionBias):
     input_key = ABUNDANCE_BIAS
@@ -23,6 +23,39 @@ class HeadWiseAbundanceBias(AttentionBias):
         nn.init.zeros_(self.query_proj.weight); nn.init.zeros_(self.query_proj.bias)
         nn.init.zeros_(self.key_proj.weight); nn.init.zeros_(self.key_proj.bias)
 
+    def validate_input(self, abundance, **kwargs):
+        if abundance is not None:
+            if abundance.dim() != 2:
+                raise ValueError(
+                    "abundance must have shape "
+                    "[batch_size, sequence_length]"
+                )
+            batch_size = kwargs.get('batch_size')
+            if batch_size is None:
+                raise ValueError("please pass a batch_size")
+            if abundance.shape[0] != batch_size:
+                raise ValueError(
+                    "Abundance batch dimension does "
+                    "not match input_ids."
+                )
+            input_shape = kwargs.get('input_shape')
+            if input_shape is None:
+                raise ValueError("please pass a input_shape")
+            if abundance.shape[1] != input_shape[1]:
+                raise ValueError(
+                    "Abundance sequence length does "
+                    "not match input_ids."
+                )
+            return True
+        return False
+
+    def input_to_device(self, abundance, dtype, device):
+        abundance = abundance.to(
+            device=device,
+            dtype=dtype,
+        )
+        return abundance
+
     def encode(self, abundance_embeddings):
         return self.encoder(abundance_embeddings) if self.encoder is not None else abundance_embeddings
 
@@ -32,7 +65,7 @@ class HeadWiseAbundanceBias(AttentionBias):
         k = self.key_proj(abundance_embeddings).view(B, N, self.num_heads, self.rank).transpose(1, 2)
         return torch.matmul(q, k.transpose(-1, -2))
 
-@register_bias("abundances")
+@register_bias("abundances_2")
 class AbundanceBias(AttentionBias):
 
     def __init__(self, hidden_size):

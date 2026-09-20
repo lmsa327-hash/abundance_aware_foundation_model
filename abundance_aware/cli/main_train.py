@@ -9,7 +9,7 @@ from sklearn.preprocessing import OneHotEncoder
 from transformers import (
     Trainer,
     TrainingArguments,
-    GPT2Config,
+    GPT2Config, GPT2ForSequenceClassification,
 )
 from transformers.trainer_callback import EarlyStoppingCallback
 
@@ -56,7 +56,8 @@ def train(cfg, args):
 
     config = GPT2Config(**config)
     config.num_labels = le.categories_[0].shape[0]
-    model = AbundanceAwareGPT2ForSequenceClassification(config)
+    model =  GPT2ForSequenceClassification(config=config)
+    #model = AbundanceAwareGPT2ForSequenceClassification(config)
 
     # set training args
     training_args = {

@@ -1,7 +1,7 @@
 import os
 import  pandas as pd
 import torch
-from transformers import Trainer
+from transformers import Trainer, GPT2ForSequenceClassification
 from pickle import load
 
 from abundance_aware.src.Datasets.MicrobialCorpus import SequenceClassificationDataset
@@ -41,7 +41,8 @@ def predict(cfg, args):
         dataset = SequenceClassificationDataset(
             corpus[:]["input_ids"], corpus[:]["attention_mask"],corpus[:]["abundances"], labels
         )
-    model = AbundanceAwareGPT2ForSequenceClassification.from_pretrained(args.model, num_labels=len(le.categories_[0]))
+    model = GPT2ForSequenceClassification.from_pretrained(args.model, num_labels=len(le.categories_[0]))
+    #model = AbundanceAwareGPT2ForSequenceClassification.from_pretrained(args.model, num_labels=len(le.categories_[0]))
     model.eval()
     trainer = Trainer(model=model)
     

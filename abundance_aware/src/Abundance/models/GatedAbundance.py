@@ -29,6 +29,34 @@ class GatedAbundanceFusion(nn.Module):
 
         return fused, gate
 
+class GatedHierarchyFusion(nn.Module):
+
+    def __init__(self, hidden_size):
+        super().__init__()
+
+        self.gate = nn.Sequential(
+            nn.Linear(hidden_size * 2, hidden_size),
+            nn.GELU(),
+            nn.Linear(hidden_size, hidden_size),
+            nn.Sigmoid(),
+        )
+        #init and make a negative bias
+        nn.init.zeros_(self.gate[-2].weight)
+        nn.init.constant_(self.gate[-2].bias, -6.0)
+
+    def forward(self, token_embeddings, hierarchy_embeddings):
+
+        combined = torch.cat(
+            [token_embeddings, hierarchy_embeddings],
+            dim=-1,
+        )
+
+        gate = self.gate(combined)
+
+        fused = token_embeddings + gate * hierarchy_embeddings
+
+        return fused, gate
+
 class GatedAbundanceFusionWithInteraction(nn.Module):
 
     def __init__(self, hidden_size):

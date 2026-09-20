@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+from abundance_aware.src.MultiBiasArchitecture.HierarchyAttention.utils.Utils import load_vocab_sizes
 from tokenize_hierarchy import TAXONOMIC_LEVELS
 
 
@@ -23,17 +24,16 @@ class TaxonomyHierarchyEncoder(nn.Module):
 
     def __init__(
         self,
-        vocab_sizes,
         hidden_size,
         level_dim=128,
         pad_idx=0,
     ):
         super().__init__()
         self.levels = TAXONOMIC_LEVELS
-
+        self.vocab_sizes = load_vocab_sizes()
         self.embeddings = nn.ModuleDict({
             level: nn.Embedding(
-                vocab_sizes[level],
+                self.vocab_sizes[level],
                 level_dim,
                 padding_idx=pad_idx,
             )
