@@ -81,9 +81,9 @@ class AbundanceAwareGPT2LMHeadModel(GPT2LMHeadModel):
         inputs_embeds = self.transformer.wte(input_ids)
         abundances = kwargs.pop("abundances", None)
         if abundances is not None:
-           inputs_embeds = self.condition_on_abundance(abundances, inputs_embeds)
+            inputs_embeds = self.condition_on_abundance(abundances, inputs_embeds)
         if self.hierarchy:
-         inputs_embeds = self.condition_on_hierarchy(inputs_embeds, input_ids)
+            inputs_embeds = self.condition_on_hierarchy(inputs_embeds, input_ids)
 
         return super().forward(
             inputs_embeds=inputs_embeds,
@@ -93,15 +93,22 @@ class AbundanceAwareGPT2LMHeadModel(GPT2LMHeadModel):
 
 
 class AbundanceAwareGPT2ForSequenceClassification(GPT2ForSequenceClassification):
-    def __init__(self, config, withFilm = False):
+    def __init__(self, config, withFilm = False, hierarchy = False, gated=False):
         super().__init__(config)
         self.abundance_embedding = AbundanceEncoder(config.n_embd)
         self.film = withFilm
+        self.hierarchy = hierarchy
         if self.film:
             self.abundance_embedding = AbundanceEncoderWithFiLM(config.n_embd)
         else:
             self.abundance_embedding = AbundanceEncoder(config.n_embd)
-        self.hierarchy_encoder = TaxonomyHierarchyEncoder(config.n_embd)
+        if gated:
+            self.abundance_fusion = GatedAbundanceFusion(
+                config.n_embd
+            )
+            self.hierarchy_fusion = GatedHierarchyFusion(config.n_embd)
+        if hierarchy:
+            self.hierarchy_encoder = TaxonomyHierarchyEncoder(config.n_embd)
 
     @classmethod
     def from_pretrained(cls, *args, **kwargs):
@@ -115,7 +122,14 @@ class AbundanceAwareGPT2ForSequenceClassification(GPT2ForSequenceClassification)
             gamma, beta = self.abundance_embedding(abundances)
             embeddings = gamma * embeddings + beta
         else:
-            embeddings = embeddings + self.abundance_embedding(abundances)
+            abundance_embeddings = self.abundance_embedding(abundances)
+            embeddings = embeddings + abundance_embeddings
+            # Does dynamically gating abundance information improve microbiome representation learning over direct abundance embedding?
+            if self.gated:
+                embeddings, gate = self.abundance_fusion(
+                    embeddings,
+                    abundance_embeddings
+                )
         return embeddings
 
     def condition_on_hierarchy(self, embeddings, input_ids):
@@ -124,18 +138,25 @@ class AbundanceAwareGPT2ForSequenceClassification(GPT2ForSequenceClassification)
         taxonomy_ids = tax_by_token[input_ids]
         hierarchy_embeddings = self.hierarchy_encoder(taxonomy_ids)
         embeddings = embeddings + hierarchy_embeddings
+        if self.gated:
+            embeddings, gate = self.hierarchy_fusion(
+                embeddings,
+                hierarchy_embeddings
+            )
         return embeddings
-    def forward(self, input_ids=None,
-                abundances: Optional[torch.Tensor] = None,
+    def forward(self,
+                input_ids=None,
                 attention_mask=None,
                 labels=None,
                 **kwargs):
         if input_ids is None:
             raise ValueError("input_ids is required")
         inputs_embeds = self.transformer.wte(input_ids)
+        abundances = kwargs.get("abundances", None)
         if abundances is not None:
             inputs_embeds = self.condition_on_abundance(abundances, inputs_embeds)
-        inputs_embeds = self.condition_on_hierarchy(inputs_embeds, input_ids)
+        if self.hierarchy:
+            inputs_embeds = self.condition_on_hierarchy(inputs_embeds, input_ids)
 
         return super().forward(
             inputs_embeds=inputs_embeds,

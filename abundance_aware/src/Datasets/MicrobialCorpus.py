@@ -8,6 +8,7 @@ import numpy as np
 import tqdm
 import torch
 
+from abundance_aware.src.MultiBiasArchitecture.HierarchyAttention.utils.Utils import load_taxonomy_by_token
 from abundance_aware.src.tokenizers.MicrobialTokenizer import MicrobialTokenizer
 from abundance_aware.src.utils.Utils import find_pkg_resource
 
@@ -20,8 +21,11 @@ class MicrobialCorpus(Dataset):
                  phylogeny_path=None,
                  key='genus',
                  max_len=512,
-                 preprocess=True, include_abundance = False):
+                 preprocess=True,
+                 include_abundance = False,
+                 include_hierarchy = False):
         self.include_abundance = include_abundance
+        self.include_hierarchy = include_hierarchy
         if phylogeny_path is None:
             phylogeny_path = find_pkg_resource("resources/phylogeny.csv")
         if data_path:
@@ -64,20 +68,20 @@ class MicrobialCorpus(Dataset):
         self.tokens = torch.LongTensor(tokens_list)
 
     def __getitem__(self, index):
-        attention_mask = torch.ones(self.tokens[index].shape)
-        attention_mask[self.tokens[index] == self.tokenizer.pad_token_id] = 0
-        tokens = self.tokens[index].clone()
-        if self.include_abundance:
-            abundance =self.abundances[index].clone()
-            return {'input_ids': torch.tensor(tokens),
-                    'attention_mask': attention_mask,
-                    "abundances": torch.tensor(abundance),
-                    }
-        else:
-            return {'input_ids': torch.tensor(tokens),
-                    'attention_mask': attention_mask
-                    }
+        input_ids = self.tokens[index].clone()
+        attention_mask = (input_ids != self.tokenizer.pad_token_id).long()
+        sample = {'input_ids': input_ids, 'attention_mask': attention_mask}
 
+        if self.include_hierarchy:
+            sample['taxonomy_ids'] = load_taxonomy_by_token()[input_ids]
+        if self.include_abundance:
+            sample['abundances'] = self.abundances[index].clone()
+        if self.include_hierarchy:
+            tax_by_token = load_taxonomy_by_token()
+            taxonomy_ids = tax_by_token[input_ids]
+            sample['taxonomy_ids'] = taxonomy_ids
+
+        return sample
     def __len__(self):
         return len(self.tokens)
 

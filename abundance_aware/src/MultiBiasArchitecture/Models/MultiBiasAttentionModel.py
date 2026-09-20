@@ -143,12 +143,6 @@ class MultiBiasGPT2Model(GPT2Model):
             kwargs[bias_module.input_key] = bias_module.input_to_device(bias_inputs,torch.float32,
                                                                         input_ids.device if input_ids is not None else inputs_embeds.device)
 
-        #taxonomy_hierarchy
-        tax_by_token = load_taxonomy_by_token()
-        taxonomy_ids = tax_by_token[input_ids]
-        if taxonomy_ids is not None:
-            pass
-
         #embeddings
         if inputs_embeds is None:
             inputs_embeds = self.wte(
