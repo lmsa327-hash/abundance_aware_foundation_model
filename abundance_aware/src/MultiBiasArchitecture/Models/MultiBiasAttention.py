@@ -4,8 +4,8 @@ import torch
 from torch import nn
 from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
 
-from abundance_aware.src.MultiBiasArchitecture.common.ComputeBias import BIAS_REGISTRY
-from abundance_aware.src.MultiBiasArchitecture.common.GatedFusion import GatedFusion
+from abundance_aware.src.MultiBiasArchitecture.RegisterEncoder.ComputeBias import BIAS_REGISTRY
+from abundance_aware.src.MultiBiasArchitecture.RegisterEncoder.GatedFusion import GatedFusion
 
 
 class MultiBiasGPT2IndividualAttentionWeightsAttention(GPT2Attention):

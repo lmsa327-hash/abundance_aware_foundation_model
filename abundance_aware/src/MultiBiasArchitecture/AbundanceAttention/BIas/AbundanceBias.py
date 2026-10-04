@@ -1,9 +1,7 @@
 import torch
 from torch import nn
 
-from abundance_aware.src.MultiBiasArchitecture.common.ComputeBias import register_bias, AttentionBias
-
-
+from abundance_aware.src.MultiBiasArchitecture.common.ComputeBias import AttentionBias, register_bias
 
 ABUNDANCE_BIAS = "abundances"
 @register_bias(ABUNDANCE_BIAS)
@@ -23,7 +21,8 @@ class HeadWiseAbundanceBias(AttentionBias):
         nn.init.zeros_(self.query_proj.weight); nn.init.zeros_(self.query_proj.bias)
         nn.init.zeros_(self.key_proj.weight); nn.init.zeros_(self.key_proj.bias)
 
-    def validate_input(self, abundance, **kwargs):
+    @classmethod
+    def validate_input(cls,abundance, **kwargs):
         if abundance is not None:
             if abundance.dim() != 2:
                 raise ValueError(
@@ -35,7 +34,7 @@ class HeadWiseAbundanceBias(AttentionBias):
                 raise ValueError("please pass a batch_size")
             if abundance.shape[0] != batch_size:
                 raise ValueError(
-                    "Abundance batch dimension does "
+                    "MultiEmbeddings batch dimension does "
                     "not match input_ids."
                 )
             input_shape = kwargs.get('input_shape')
@@ -43,13 +42,14 @@ class HeadWiseAbundanceBias(AttentionBias):
                 raise ValueError("please pass a input_shape")
             if abundance.shape[1] != input_shape[1]:
                 raise ValueError(
-                    "Abundance sequence length does "
+                    "MultiEmbeddings sequence length does "
                     "not match input_ids."
                 )
             return True
         return False
 
-    def input_to_device(self, abundance, dtype, device):
+    @classmethod
+    def input_to_device(cls,abundance, dtype, device):
         abundance = abundance.to(
             device=device,
             dtype=dtype,

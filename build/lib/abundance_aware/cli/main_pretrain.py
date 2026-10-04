@@ -14,7 +14,7 @@ from transformers import (
 from transformers.trainer_callback import EarlyStoppingCallback
 
 from abundance_aware.src.Datasets.MicrobialCorpus import MicrobialCorpusWithLabelTokens
-from abundance_aware.src.Abundance.models.AbundanceAwareModel import AbundanceAwareGPT2LMHeadModel
+from abundance_aware.src.MultiEmbeddings.models.MultiEmbeddingsModel import MultiEmbeddingsGPT2LMHeadModel
 
 warnings.filterwarnings("ignore")
 
@@ -86,11 +86,11 @@ def pretrain(cfg, args):
     )
 
     if args.from_scratch:
-        model = AbundanceAwareGPT2LMHeadModel(config).to(device)
+        model = MultiEmbeddingsGPT2LMHeadModel(config).to(device)
         print("Training from scratch.")
     else:
 
-        model = AbundanceAwareGPT2LMHeadModel.from_pretrained(args.model).to(device)
+        model = MultiEmbeddingsGPT2LMHeadModel.from_pretrained(args.model).to(device)
 
     if args.with_label:
         model.resize_token_embeddings(len(tokenizer))

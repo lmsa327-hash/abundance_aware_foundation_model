@@ -2,45 +2,25 @@ import torch
 from torch import nn
 from transformers.models.gpt2.modeling_gpt2 import  GPT2Model
 
-from abundance_aware.src.Abundance.models.AbundanceEncoder import AbundanceEncoderWithFiLM
-from abundance_aware.src.MultiBiasArchitecture.AbundanceAttention.BIas.AbundanceBias import ABUNDANCE_BIAS
-from abundance_aware.src.MultiBiasArchitecture.HierarchyAttention.Bias.TaxonomyHierarchyBias import HIERARCHY_BIAS
-from abundance_aware.src.MultiBiasArchitecture.HierarchyAttention.Bias.TaxonomyHierarchyEncoder import \
-    TaxonomyHierarchyEncoder
-from abundance_aware.src.MultiBiasArchitecture.HierarchyAttention.utils.Utils import load_taxonomy_by_token
+from abundance_aware.src.MultiBiasArchitecture.common.ComputeBias import BIAS_REGISTRY
 from abundance_aware.src.MultiBiasArchitecture.Models.MultiBiasBlock import MultiBiasBlock
 
 
 class MultiBiasGPT2Model(GPT2Model):
 
-    def __init__(self, config):
+    def __init__(self, config, bias_specs=None):
 
         super().__init__(config)
+        # round-trip through config.json like the conditioner spec does —
+        # but config can only hold plain data, so store the resolvable form
+        # (encoder is already an instance by the time it gets here; that's
+        # fine for a live model object, just not for JSON serialization —
+        # see save/load note below)
+        bias_specs = bias_specs or getattr(config, "_resolved_bias_specs", None) or {}
+        self.bias_specs = bias_specs  # plain dict of kwargs — NOT bias module instances
 
         old_blocks = self.h
-
         new_blocks = []
-        self.biases = {
-                ABUNDANCE_BIAS: dict(
-                    hidden_size=config.hidden_size,
-                    num_heads=config.num_attention_heads,
-                    rank=16,
-                    #encoder=AbundanceEncoder(config.n_embd),
-                    encoder=AbundanceEncoderWithFiLM(config.n_embd),
-                    use_gated_fusion=True,
-                    init_scale=0.0,
-                ),
-            HIERARCHY_BIAS: dict(
-                    hidden_size=config.hidden_size,
-                    num_heads=config.num_attention_heads,
-                    rank=16,
-                    encoder=TaxonomyHierarchyEncoder(config.n_embd),
-                    use_gated_fusion=True,
-                    init_scale=0.0,
-                )
-
-            }
-
         for i, old_block in enumerate(
             old_blocks
         ):
@@ -48,7 +28,7 @@ class MultiBiasGPT2Model(GPT2Model):
             new_block = (
                 MultiBiasBlock(
                     config,
-                    biases=self.biases,
+                    bias_specs=self.bias_specs,
                     layer_idx=i,
                 )
             )
@@ -135,13 +115,16 @@ class MultiBiasGPT2Model(GPT2Model):
                 "input_ids or inputs_embeds"
             )
         #validate inputs
-        for name, bias_module in self.biases.items():
-            bias_inputs = kwargs.pop(bias_module.input_key, None)
+        for name in self.bias_specs:
+            bias_cls = BIAS_REGISTRY[name]
+            bias_inputs = kwargs.pop(bias_cls.input_key, None)
             if bias_inputs is None:
                 continue
-            valid =  bias_module.validate_input(bias_inputs,batch_size = batch_size, input_shape = input_shape)
-            kwargs[bias_module.input_key] = bias_module.input_to_device(bias_inputs,torch.float32,
-                                                                        input_ids.device if input_ids is not None else inputs_embeds.device)
+            bias_cls.validate_input(bias_inputs, batch_size=batch_size, input_shape=input_shape)
+            kwargs[bias_cls.input_key] = bias_cls.input_to_device(
+                bias_inputs, torch.float32,
+                input_ids.device if input_ids is not None else inputs_embeds.device,
+            )
 
         #embeddings
         if inputs_embeds is None:
@@ -304,6 +287,7 @@ class MultiBiasGPT2Model(GPT2Model):
             attentions=all_attentions,
         )
 
-
+# bias_specs = build_bias_specs_from_config(cfg, config.hidden_size, config.num_attention_heads)
+# model = MultiBiasGPT2Model(config, bias_specs=bias_specs)
 
 

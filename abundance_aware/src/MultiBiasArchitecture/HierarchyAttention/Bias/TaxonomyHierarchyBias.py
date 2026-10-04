@@ -3,7 +3,6 @@ from torch import nn
 
 from abundance_aware.src.MultiBiasArchitecture.common.ComputeBias import AttentionBias, register_bias
 
-
 HIERARCHY_BIAS = 'taxonomy'
 @register_bias(HIERARCHY_BIAS)
 class TaxonomyHierarchyBias(AttentionBias):
@@ -25,14 +24,15 @@ class TaxonomyHierarchyBias(AttentionBias):
     def encode(self, hierarchy_embeddings):
         return self.encoder(hierarchy_embeddings) if self.encoder is not None else hierarchy_embeddings
 
-    def input_to_device(self, taxonomy, dtype, device):
+    @classmethod
+    def input_to_device(cls,taxonomy, dtype, device):
         taxonomy = taxonomy.to(
             device=device,
             dtype=dtype,
         )
         return taxonomy
-
-    def validate_input(self, taxonomy, **kwargs):
+    @classmethod
+    def validate_input(cls, taxonomy, **kwargs):
         return True
 
     def forward(self, hierarchy_embeddings):

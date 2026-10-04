@@ -9,7 +9,7 @@ from transformers.models.gpt2.modeling_gpt2 import GPT2Attention, GPT2Block, GPT
 
 from abundance_aware.src.MultiBiasArchitecture.AbundanceAttention import  HeadWiseAbundanceBias
 from abundance_aware.src.MultiBiasArchitecture.Models.GatedFusionModule import GatedAbundanceFusion
-from abundance_aware.src.Abundance.models.AbundanceEncoder import AbundanceEncoder
+from abundance_aware.src.common.AbundanceEncoder import AbundanceEncoder
 
 
 class AbundanceAwareGPT2Attention(GPT2Attention):
@@ -389,13 +389,13 @@ class AbundanceAwareGPT2Model(GPT2Model):
 
             if abundance.shape[0] != batch_size:
                 raise ValueError(
-                    "Abundance batch dimension does "
+                    "MultiEmbeddings batch dimension does "
                     "not match input_ids."
                 )
 
             if abundance.shape[1] != input_shape[1]:
                 raise ValueError(
-                    "Abundance sequence length does "
+                    "MultiEmbeddings sequence length does "
                     "not match input_ids."
                 )
 

@@ -8,3 +8,5 @@ tqdm
 transformers
 accelerate
 tables
+
+mlflow-skinny

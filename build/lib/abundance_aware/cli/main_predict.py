@@ -5,7 +5,7 @@ from transformers import Trainer
 from pickle import load
 
 from abundance_aware.src.Datasets.MicrobialCorpus import SequenceClassificationDataset
-from abundance_aware.src.Abundance.models.AbundanceAwareModel import AbundanceAwareGPT2ForSequenceClassification
+from abundance_aware.src.MultiEmbeddings.models.MultiEmbeddingsModel import AbundanceAwareGPT2ForSequenceClassification
 from abundance_aware.src.utils.TrainingUtils import eval_and_save
 
 

@@ -14,9 +14,13 @@ from transformers import (
 from transformers.trainer_callback import EarlyStoppingCallback
 
 from abundance_aware.src.Datasets.MicrobialCorpus import SequenceClassificationDataset
-from abundance_aware.src.Abundance.models.AbundanceAwareModel import AbundanceAwareGPT2ForSequenceClassification
+from abundance_aware.src.MultiEmbeddings.models.MultiEmbeddingsModel import AbundanceAwareGPT2ForSequenceClassification
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+import mlflow
+mlflow.set_tracking_uri("file:./mlruns")
+mlflow.set_experiment("abundance-attn-finetune")
 
 def finetune(cfg, args):
     corpus = load(open(args.input, "rb"))
@@ -63,6 +67,7 @@ def finetune(cfg, args):
         "output_dir": f'{args.log}/finetune_checkpoints',
         "logging_dir": args.log,
         "load_best_model_at_end": True,
+        "report_to": ["mlflow"],
     }
 
     training_args = TrainingArguments(**training_args)

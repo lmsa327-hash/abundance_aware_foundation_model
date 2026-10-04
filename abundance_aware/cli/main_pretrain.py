@@ -14,17 +14,23 @@ from transformers import (
 from transformers.trainer_callback import EarlyStoppingCallback
 
 from abundance_aware.src.Datasets.MicrobialCorpus import MicrobialCorpusWithLabelTokens
-from abundance_aware.src.Abundance.models.AbundanceAwareModel import AbundanceAwareGPT2LMHeadModel
+from abundance_aware.src.MultiEmbeddings.models.MultiEmbeddingsDataCollator import MultiEmbeddingsDataCollator
+from abundance_aware.src.MultiEmbeddings.models.MultiEmbeddingsModel import MultiEmbeddingsGPT2LMHeadModel
+from abundance_aware.src.MultiEmbeddings.utils import build_conditioners_from_config
+from abundance_aware.src.utils.callbacks import LambdaATrackingCallback, ConditionerTrackingCallback
 
 warnings.filterwarnings("ignore")
 
 torch.set_float32_matmul_precision("medium")  # For tensor cores
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+import mlflow
+mlflow.set_tracking_uri("file:./mlruns")
+mlflow.set_experiment("abundance-attn-pretrain")
+
 def pretrain(cfg, args):
     corpus = load(open(args.input, 'rb'))
     tokenizer = corpus.tokenizer
-    # set model
 
     config = {
         'model_type': cfg.get('GPT2', 'model_type'),
@@ -37,12 +43,11 @@ def pretrain(cfg, args):
         'eos_token_id': tokenizer.eos_token_id,
         'pad_token_id': tokenizer.pad_token_id,
     }
-
-    print(corpus.data)
-
     config = GPT2Config(**config)
 
-    training_args = {
+    conditioners_spec = build_conditioners_from_config(cfg)
+
+    training_args = TrainingArguments(**{
         "learning_rate": cfg.getfloat('pretrain', 'learning_rate'),
         "do_train": True,
         "do_eval": True,
@@ -61,51 +66,43 @@ def pretrain(cfg, args):
         "logging_steps": cfg.getint('pretrain', 'logging_steps'),
         "output_dir": f'{args.log}/pretrain_checkpoints',
         "load_best_model_at_end": True,
-    }
-
-    training_args = TrainingArguments(**training_args)
+        "report_to": ["mlflow"],
+    })
 
     if args.with_label:
         if args.labels is None:
             raise ValueError("Please provide labels for pretraining.")
         metadata = pd.read_csv(args.labels, index_col=0)
         metadata = metadata.loc[corpus.data.index]
-        tokens = corpus.tokens
-        abundances = corpus.abundances
         extend_words = metadata.iloc[:, 0].unique().tolist()
         tokenizer.add_tokens(extend_words)
         os.makedirs(args.output, exist_ok=True)
         dump(tokenizer, open(f'{args.output}/tokenizer.pkl', 'wb'))
-        corpus = MicrobialCorpusWithLabelTokens(tokens, abundances,
-                                            metadata.iloc[:, 0].values.tolist(),
-                                            tokenizer)
+        corpus = MicrobialCorpusWithLabelTokens(
+            corpus.tokens, corpus.abundances, metadata.iloc[:, 0].values.tolist(), tokenizer
+        )
 
     print(f"Start training...")
-    data_collator = DataCollatorForLanguageModeling(
-        tokenizer=tokenizer, mlm=False
-    )
+    base_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
     if args.from_scratch:
-        model = GPT2LMHeadModel(config).to(device)
-        #model = AbundanceAwareGPT2LMHeadModel(config).to(device)
+        model = MultiEmbeddingsGPT2LMHeadModel(config, conditioners=conditioners_spec).to(device)
         print("Training from scratch.")
     else:
-        model = GPT2LMHeadModel.from_pretrained(args.model).to(device)
-        #model = AbundanceAwareGPT2LMHeadModel.from_pretrained(args.model).to(device)
+        model = MultiEmbeddingsGPT2LMHeadModel.from_pretrained(
+            args.model, conditioners=conditioners_spec
+        ).to(device)
 
     if args.with_label:
         model.resize_token_embeddings(len(tokenizer))
         print("Update the embedding layer to include the label embedding.")
 
+    data_collator = MultiEmbeddingsDataCollator(base_collator, model.conditioners, tokenizer.pad_token_id)
+
     model = model.train()
+    train_set, val_set = random_split(corpus, [1 - args.val_split, args.val_split])
 
-    split = args.val_split
-
-    train_set, val_set = random_split(
-        corpus, [1 - split, split]
-    )
-
-    callbacks = [EarlyStoppingCallback(early_stopping_patience=3)]
+    callbacks = [EarlyStoppingCallback(early_stopping_patience=3), ConditionerTrackingCallback()]
 
     trainer = Trainer(
         model=model,
@@ -119,8 +116,6 @@ def pretrain(cfg, args):
     os.makedirs(args.output, exist_ok=True)
     trainer.save_model(args.output)
 
-    # save logs
-    logs = trainer.state.log_history
-    logs = pd.DataFrame(logs)
+    logs = pd.DataFrame(trainer.state.log_history)
     os.makedirs(args.log, exist_ok=True)
     logs.to_csv(os.path.join(args.log, "pretrain_log.csv"), index=False)

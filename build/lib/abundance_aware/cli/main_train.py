@@ -14,7 +14,7 @@ from transformers import (
 from transformers.trainer_callback import EarlyStoppingCallback
 
 from abundance_aware.src.Datasets.MicrobialCorpus import SequenceClassificationDataset
-from abundance_aware.src.Abundance.models.AbundanceAwareModel import AbundanceAwareGPT2ForSequenceClassification
+from abundance_aware.src.MultiEmbeddings.models.MultiEmbeddingsModel import AbundanceAwareGPT2ForSequenceClassification
 
 
 def train(cfg, args):

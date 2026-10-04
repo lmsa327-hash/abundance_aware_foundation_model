@@ -1,16 +1,13 @@
 from transformers.models.gpt2.modeling_gpt2 import GPT2Block
 
-from abundance_aware.src.MultiBiasArchitecture.AbundanceAttention.BIas.AbundanceBias import ABUNDANCE_BIAS
-from abundance_aware.src.MultiBiasArchitecture.HierarchyAttention.Bias.TaxonomyHierarchyBias import HIERARCHY_BIAS
 from abundance_aware.src.MultiBiasArchitecture.Models.MultiBiasAttention import MultiBiasGPT2Attention
-from abundance_aware.src.Abundance.models.AbundanceEncoder import AbundanceEncoderWithFiLM
 
 
 class MultiBiasBlock(GPT2Block):
     def __init__(
             self,
             config,
-            biases,
+            bias_specs,
             layer_idx=None,
     ):
         super().__init__(
@@ -21,20 +18,9 @@ class MultiBiasBlock(GPT2Block):
         # Replace standard attention
 
         old_attention = self.attn
+        self.attn = MultiBiasGPT2Attention(config, biases=bias_specs)
+        self.attn.load_state_dict(old_attention.state_dict(), strict=False)
 
-        self.attn = MultiBiasGPT2Attention(
-            config,
-            biases= biases,
-        )
-        # Copy pretrained attention parameters
-        #
-        # strict=False is important because the new
-        # modules don't exist in the old checkpoint.
-
-        self.attn.load_state_dict(
-            old_attention.state_dict(),
-            strict=False,
-        )
     def forward(
         self,
         hidden_states,

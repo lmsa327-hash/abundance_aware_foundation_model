@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from abundance_aware.src.Datasets.CustomUnPickler import CustomUnpickler
 from abundance_aware.src.Datasets.MicrobialCorpus import MicrobialCorpus
-from abundance_aware.src.Abundance.models.Reconstructor import reconstructorNet, PositionEmbedding
+from abundance_aware.src.MultiEmbeddings.models.Reconstructor import reconstructorNet, PositionEmbedding
 from abundance_aware.src.utils.TrainingUtils import get_Z
 from abundance_aware.src.utils.Utils import find_pkg_resource
 

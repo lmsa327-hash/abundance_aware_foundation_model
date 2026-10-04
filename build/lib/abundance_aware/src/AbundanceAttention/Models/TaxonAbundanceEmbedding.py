@@ -1,5 +1,5 @@
 """
-Abundance-aware microbial transformer.
+MultiEmbeddings-aware microbial transformer.
 
 Token composition follows the BiomeGPT-style additive fusion:
     T = LayerNorm(S) + LayerNorm(A)

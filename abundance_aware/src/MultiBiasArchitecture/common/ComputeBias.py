@@ -35,10 +35,12 @@ class AttentionBias(nn.Module):
     def forward(self, embeddings):
         raise NotImplementedError  # additive attention-bias term
 
-    def validate_input(self, raw, **kwargs):
+    @classmethod
+    def validate_input(cls,raw, **kwargs):
         raise NotImplementedError
 
-    def input_to_device(self, raw, dtype, device):
+    @classmethod
+    def input_to_device(cls,raw, dtype, device):
         raise NotImplementedError
 
     def compute(self, raw):

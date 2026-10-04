@@ -14,7 +14,10 @@ from transformers import (
 from transformers.trainer_callback import EarlyStoppingCallback
 
 from abundance_aware.src.Datasets.MicrobialCorpus import SequenceClassificationDataset
-from abundance_aware.src.Abundance.models.AbundanceAwareModel import AbundanceAwareGPT2ForSequenceClassification
+
+import mlflow
+mlflow.set_tracking_uri("file:./mlruns")
+mlflow.set_experiment("abundance-attn-finetune")
 
 
 def train(cfg, args):
@@ -78,6 +81,7 @@ def train(cfg, args):
         "output_dir": f"{args.log}/train_checkpoints",
         "logging_dir": args.log,
         "load_best_model_at_end": True,
+        "report_to": ["mlflow"],
     }
 
     training_args = TrainingArguments(**training_args)
