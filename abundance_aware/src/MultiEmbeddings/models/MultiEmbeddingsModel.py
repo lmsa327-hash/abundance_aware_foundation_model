@@ -19,17 +19,20 @@ class MultiEmbeddingsGPT2LMHeadModel(ConditionedEmbeddingsMixin, GPT2LMHeadModel
         model.zero_init_conditioners_on_load()
         return model
 
-    def forward(self, input_ids=None, attention_mask=None, labels=None, **kwargs):
+    def forward(self, input_ids=None,
+                attention_mask=None,
+                labels=None,
+                **kwargs):
         if input_ids is None:
             raise ValueError("input_ids is required")
         inputs_embeds = self.transformer.wte(input_ids)
         # pop every consumed raw input so it isn't also forwarded to the HF
         # base forward() as an unrecognized kwarg
+        inputs_embeds = self.apply_conditioning(inputs_embeds, input_ids,
+                                                 **{k: v for k, v in list(kwargs.items())})
         consumed = {c.input_key for c in self.conditioners.values() if c.input_key != "input_ids"}
         for key in consumed:
             kwargs.pop(key, None)
-        inputs_embeds = self.apply_conditioning(inputs_embeds, input_ids,
-                                                 **{k: v for k, v in list(kwargs.items())})
         return super().forward(inputs_embeds=inputs_embeds, attention_mask=attention_mask,
                                 labels=labels, **kwargs)
 

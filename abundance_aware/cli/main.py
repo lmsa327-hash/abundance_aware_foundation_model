@@ -8,7 +8,7 @@ warnings.filterwarnings('ignore')
 
 
 def main():
-    print("Starting MGM...")
+    print("Starting GWMM...")
     parser = GetCLIParser()
     args = parser.parse_args()
     cfg = GetCFGReader(args.config)
@@ -25,7 +25,7 @@ def main():
         sys.exit(0)
     elif args.mode == 'pretrain':
         from abundance_aware.cli.main_pretrain import pretrain
-        pretrain(cfg, args)
+        pretrain(cfg, args, "M1_abundance_embedding")
         sys.exit(0)
     elif args.mode == 'train':
         from abundance_aware.cli.main_train import train

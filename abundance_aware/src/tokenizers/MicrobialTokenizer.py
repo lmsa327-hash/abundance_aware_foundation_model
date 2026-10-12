@@ -1,17 +1,19 @@
 
 from transformers import PreTrainedTokenizer
-from typing import Optional, List, Dict, Union, Tuple
+from typing import List
+
+SPECIALS = ["<pad>", "<mask>", "<bos>", "<eos>", "<unk>"]
 
 class MicrobialTokenizer(PreTrainedTokenizer):
     def __init__(self, toks, **kwargs):
-
-        # self.unk_token =
-
-        self.toks = toks
+        base = [t for t in dict.fromkeys(toks) if t not in SPECIALS]
+        self.toks = base + SPECIALS
         self.vocab = {v: i for i, v in enumerate(self.toks)}
         self.ids_to_tokens = {i: v for i, v in enumerate(self.toks)}
-        super(MicrobialTokenizer, self).__init__(**kwargs)
-        self.add_special_tokens({'pad_token': '<pad>', 'mask_token': '<mask>', 'bos_token': '<bos>', 'eos_token': '<eos>', 'unk_token':'<unk>'})
+        super().__init__(
+            pad_token="<pad>", mask_token="<mask>", bos_token="<bos>",
+            eos_token="<eos>", unk_token="<unk>", **kwargs,
+        )
 
     def __setstate__(self, state):
         scratch = MicrobialTokenizer(['<pad>', '<mask>', '<bos>', '<eos>', '<unk>'])
@@ -35,13 +37,18 @@ class MicrobialTokenizer(PreTrainedTokenizer):
     def _tokenize(self, text):
         return list(text)
 
-    def _add_tokens(self, new_tokens: List[str], special_tokens: bool = False) -> int:
-        self.toks.extend(new_tokens)
-        self.vocab = {v: i for i, v in enumerate(self.toks)}
-        self.ids_to_tokens = {i: v for i, v in enumerate(self.toks)}
+    def _add_tokens(self, new_tokens, special_tokens=False):
+        added = 0
+        for t in new_tokens:
+            t = str(t)
+            if t not in self.vocab:
+                self.vocab[t] = len(self.toks)
+                self.ids_to_tokens[self.vocab[t]] = t
+                self.toks.append(t)
+                added += 1
+        return added
 
     def _convert_token_to_id(self, token):
-        # print(token in self.vocab)
         return self.vocab.get(token, self.vocab[self.unk_token])
 
     def _convert_id_to_token(self, index):

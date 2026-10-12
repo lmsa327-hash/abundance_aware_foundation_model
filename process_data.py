@@ -8,7 +8,7 @@ def main():
     parser = argparse.ArgumentParser(
         description=(
             "Calculate mean and standard deviation of each taxon "
-            "across the MicroCorpus260K abundance matrix."
+            "across the MicroCorpus matrix."
         )
     )
 

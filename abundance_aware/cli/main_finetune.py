@@ -14,12 +14,13 @@ from transformers import (
 from transformers.trainer_callback import EarlyStoppingCallback
 
 from abundance_aware.src.Datasets.MicrobialCorpus import SequenceClassificationDataset
-from abundance_aware.src.MultiEmbeddings.models.MultiEmbeddingsModel import AbundanceAwareGPT2ForSequenceClassification
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 import mlflow
-mlflow.set_tracking_uri("file:./mlruns")
+tracking_uri = "http://127.0.0.1:5000"
+mlflow.set_tracking_uri(tracking_uri)
+mlflow.set_registry_uri(tracking_uri)
 mlflow.set_experiment("abundance-attn-finetune")
 
 def finetune(cfg, args):

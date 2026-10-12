@@ -1,7 +1,5 @@
 import pickle
-import torch
-import torch.nn as nn
-from abundance_aware.src.tokenizers import MicrobialTokenizer
+from abundance_aware.src.tokenizers.MicrobialTokenizer import MicrobialTokenizer
 
 
 class CustomUnpickler(pickle.Unpickler):

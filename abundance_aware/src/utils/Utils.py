@@ -15,8 +15,4 @@ def find_pkg_resource(path):
     return resource
 def get_pkg_resource_path(path):
     dir_path  = Path(RESOURCES_PACKAGE_NAME).joinpath(path)
-    if not dir_path.is_file():
-        raise FileNotFoundError(
-            "Resource {} not found, please check".format(path)
-        )
     return dir_path

@@ -17,6 +17,8 @@ def construct(cfg, args):
         data_path=args.input,
         tokenizer=tokenizer,
         key=args.key,
+        include_abundance=True,
+        phylogeny_path = "abundance_aware/resources/phylogeny.csv",
         max_len=cfg.getint("construct", "max_len"),
         preprocess=not args.no_normalize,
     )

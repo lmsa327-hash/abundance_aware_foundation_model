@@ -18,8 +18,9 @@ class HeadWiseAbundanceBias(AttentionBias):
 
         self.query_proj = nn.Linear(hidden_size, num_heads * rank)
         self.key_proj = nn.Linear(hidden_size, num_heads * rank)
-        nn.init.zeros_(self.query_proj.weight); nn.init.zeros_(self.query_proj.bias)
-        nn.init.zeros_(self.key_proj.weight); nn.init.zeros_(self.key_proj.bias)
+
+        nn.init.zeros_(self.query_proj.weight)
+        nn.init.zeros_(self.key_proj.weight)
 
     @classmethod
     def validate_input(cls,abundance, **kwargs):

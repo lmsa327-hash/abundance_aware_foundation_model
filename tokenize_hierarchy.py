@@ -88,7 +88,7 @@ def tokenize_hierarchy(genus_hierarchy: dict, tokenizer: MicrobialTokenizer):
 
         if token_id is None:
             raise ValueError(
-                f"Genus {genus} is not in the MGM tokenizer vocabulary"
+                f"Genus {genus} is not in the GWMM tokenizer vocabulary"
             )
 
         genus_token_to_id[genus] = token_id

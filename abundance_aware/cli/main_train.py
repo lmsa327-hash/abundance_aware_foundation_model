@@ -16,7 +16,9 @@ from transformers.trainer_callback import EarlyStoppingCallback
 from abundance_aware.src.Datasets.MicrobialCorpus import SequenceClassificationDataset
 
 import mlflow
-mlflow.set_tracking_uri("file:./mlruns")
+tracking_uri = "http://127.0.0.1:5000"
+mlflow.set_tracking_uri(tracking_uri)
+mlflow.set_registry_uri(tracking_uri)
 mlflow.set_experiment("abundance-attn-finetune")
 
 

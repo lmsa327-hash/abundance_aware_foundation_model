@@ -88,7 +88,7 @@ def reconstruct(cfg, args):
         raise ValueError('Please provide ranked corpus for reconstruct model.')
     
     ordered_corpus = load(open(args.input, 'rb'))
-    with open(find_pkg_resource("resources/MicroTokenizer.pkl"), "rb") as f:
+    with open(find_pkg_resource("resources/MicrobialTokenizer.pkl"), "rb") as f:
                 unpickler = CustomUnpickler(f)
                 tokenizer = unpickler.load()
     vocab_size = tokenizer.vocab_size

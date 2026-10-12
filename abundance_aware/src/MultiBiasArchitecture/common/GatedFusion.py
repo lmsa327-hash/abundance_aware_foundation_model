@@ -12,12 +12,16 @@ class GatedFusion(nn.Module):
             nn.Sigmoid(),
         )
         # Start each bias's contribution near-zero.
+        self.uses_aux = uses_aux
         nn.init.zeros_(self.gate[-2].weight)
         nn.init.constant_(self.gate[-2].bias, init_bias)
 
-    def forward(self, token_embeddings, aux_embeddings):
-        interaction = token_embeddings * aux_embeddings
-        x = torch.cat([token_embeddings, aux_embeddings, interaction], dim=-1) if self.uses_aux else token_embeddings
+    def forward(self, token_embeddings, aux_embeddings = None):
+        if self.uses_aux:
+            interaction = token_embeddings * aux_embeddings
+            x = torch.cat([token_embeddings, aux_embeddings, interaction], dim=-1)
+        else:
+            x = token_embeddings
         gate = self.gate(x)
         fused = token_embeddings + gate * aux_embeddings if self.uses_aux else token_embeddings
         return fused, gate

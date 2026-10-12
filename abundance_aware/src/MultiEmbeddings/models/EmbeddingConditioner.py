@@ -1,9 +1,9 @@
 import torch.nn as nn
 
+from abundance_aware.src.MultiBiasArchitecture.common.GatedFusion import GatedFusion
 from abundance_aware.src.common.TaxonomyHierarchyEncoder import \
     TaxonomyHierarchyEncoder
 from abundance_aware.src.MultiBiasArchitecture.HierarchyAttention.utils.Utils import load_taxonomy_by_token
-from abundance_aware.src.MultiBiasArchitecture.RegisterEncoder.GatedFusion import GatedFusion
 from abundance_aware.src.common.AbundanceEncoder import AbundanceEncoder, AbundanceEncoderWithFiLM
 
 

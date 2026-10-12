@@ -2,7 +2,7 @@ from setuptools import setup
 from setuptools import find_packages
 
 # change this.
-NAME = "abundanance_aware_mgm"
+NAME = "abundanance_aware_gwmm"
 AUTHOR = "Lewis Msasa"
 EMAIL = "lmsa327@aucklanduni.ac.nz"
 URL = ""

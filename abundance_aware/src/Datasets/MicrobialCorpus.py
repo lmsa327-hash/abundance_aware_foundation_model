@@ -26,6 +26,9 @@ class MicrobialCorpus(Dataset):
                  include_hierarchy = False):
         self.include_abundance = include_abundance
         self.include_hierarchy = include_hierarchy
+        print("starting---------------")
+        if self.include_hierarchy:
+            self.load_taxonomy_by_token = load_taxonomy_by_token()
         if phylogeny_path is None:
             phylogeny_path = find_pkg_resource("resources/phylogeny.csv")
         if data_path:
@@ -34,10 +37,10 @@ class MicrobialCorpus(Dataset):
                 raise ValueError('File type not supported.'
                                  'Please provide h5, csv, tsv or txt file.')
             if file_type == 'h5':
-                self.data = pd.read_hdf(data_path, key=key).T
+                self.data = pd.read_hdf(data_path, key=key)
             else:
                 sep = ',' if file_type == 'csv' else '\t'
-                self.data = pd.read_csv(data_path, sep=sep, index_col=0).T
+                self.data = pd.read_csv(data_path, sep=sep, index_col=0)
         elif abu is not None:
             self.data = abu
         else:
@@ -47,13 +50,16 @@ class MicrobialCorpus(Dataset):
         self.max_len = max_len
 
         # add all zero row to save zero values
+        print("here 1 --------------------")
         self.data, self.zero_values = self._preprocess(self.data, preprocess)
+        print("here 2 --------------------")
 
+        print(self.data.index)
         # convert to token
         tokens_list = []
         length_list = []
 
-        for sample in tqdm(self.data.index):
+        for sample in tqdm.tqdm(self.data.index):
             tokens, length = self._convert_to_token(self.data.loc[sample])
             tokens_list.append(tokens)
             length_list.append(length)
@@ -64,7 +70,7 @@ class MicrobialCorpus(Dataset):
             Average length is {np.mean(length_list)}.\n\
             Min length is {min(length_list)}.')
         if self.include_abundance:
-            self.abundances = self.data
+            self.abundances = torch.tensor(self.data.values, dtype=torch.float32)
         self.tokens = torch.LongTensor(tokens_list)
 
     def __getitem__(self, index):
@@ -72,18 +78,19 @@ class MicrobialCorpus(Dataset):
         attention_mask = (input_ids != self.tokenizer.pad_token_id).long()
         sample = {'input_ids': input_ids, 'attention_mask': attention_mask}
 
-        if self.include_hierarchy:
-            sample['taxonomy_ids'] = load_taxonomy_by_token()[input_ids]
         if self.include_abundance:
             sample['abundances'] = self.abundances[index].clone()
         if self.include_hierarchy:
-            tax_by_token = load_taxonomy_by_token()
+            tax_by_token = self.load_taxonomy_by_token()
             taxonomy_ids = tax_by_token[input_ids]
             sample['taxonomy_ids'] = taxonomy_ids
 
         return sample
     def __len__(self):
         return len(self.tokens)
+
+    def _tokenize(self, text):
+        return text.split()
 
     def _convert_to_token(self, sample):
         # set zero values to zero
@@ -96,7 +103,12 @@ class MicrobialCorpus(Dataset):
         sent = sent + ['<eos>']
 
         # convert to token
-        tokens = self.tokenizer.encode(sent)
+        #tokens = self.tokenizer.encode(sent)
+        tokens = self.tokenizer.convert_tokens_to_ids(sent)
+        assert all(isinstance(i, int) for i in tokens)
+        unk = self.tokenizer.unk_token_id
+        print(sum(i == unk for i in tokens), "unk tokens in this sample")
+
         length = len(tokens)
 
         # padding and truncate
@@ -112,12 +124,23 @@ class MicrobialCorpus(Dataset):
         # data.columns = data.columns.str.replace(';s__.*', '', regex=True) # drop species level
         # data.columns = data.columns.str.replace('^k__', 'sk__', regex=True) # if start with k__, replace with sk__
         # extract 'g__XXX' in the column names
-        data.columns = data.columns.str.extract(r'(g__[A-Za-z0-9_]+)').squeeze()
-        data = data.groupby(data.columns, axis=1).sum()
+        genus = data.columns.astype(str).str.extract(r'(g__[A-Za-z0-9_]+)', expand=False)
+        if genus.isna().all():
+            raise ValueError(
+                f'No g__ genus names found in columns {list(data.columns[:5])}. '
+                'Is the data transposed (samples should be rows)?'
+            )
+        data = data.loc[:, genus.notna()]
+        data.columns = genus[genus.notna()]
+        data.columns.name = None
+
+        data = data.T.groupby(level=0).sum().T
+
         before = data.shape[0]
         # only keep genus in phylogeny
         target_df = pd.DataFrame(index=self.phylogeny.index)
         data = target_df.merge(data.T, left_index=True, right_index=True, how='left').fillna(0).T
+
         # drop all zero rows
         data = data.loc[(data != 0).any(axis=1)]
         print(f'{before - data.shape[0]} samples are dropped for all zeroes')

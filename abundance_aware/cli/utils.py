@@ -4,6 +4,8 @@ from configparser import ConfigParser
 from importlib.resources import files, as_file
 from typing import Optional
 
+import mlflow
+
 
 def GetCFGReader(cfg_path: Optional[str] = None):
     cfg = ConfigParser()
@@ -11,8 +13,8 @@ def GetCFGReader(cfg_path: Optional[str] = None):
         cfg.read(cfg_path)
         return cfg
     print('No config file provided, use default config file.')
-    assert files("mgm").joinpath("resources/config.ini").is_file()
-    resource = files("mgm").joinpath("resources/config.ini")
+    assert files("abundance_aware").joinpath("resources/config.ini").is_file()
+    resource = files("abundance_aware").joinpath("resources/config.ini")
 
     with as_file(resource) as config_path:
         cfg = ConfigParser()
@@ -27,11 +29,11 @@ def GetCLIParser():
     # noinspection PyTypeChecker
     parser = argparse.ArgumentParser(
         description=(
-            'MGM (Microbiao General Model) is a large-scaled pretrained language model for interpretable microbiome data analysis.\n'
-            'The program is designed to help you to fine-tune and evaluate MGM'
+            'GWMM is a large-scaled pretrained language model for interpretable microbiome data analysis.\n'
+            'The program is designed to help you to fine-tune and evaluate GWMM'
             'to other  microbiome data analysis tasks.\n'
             'Feel free to contact us if you have any question.\n'
-            'For more information, see Github. Thank you for using MGM!'),
+            'For more information, see Github. Thank you for using GWMM!'),
         formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('mode', type=str, default='predict', choices=modes,
                         help='The work mode for expert program.')
@@ -45,7 +47,7 @@ def GetCLIParser():
                         help='The config.ini file.')
     parser.add_argument('-l', '--labels', type=str, default=None,
                         help='The path to csv file (storing labels for the input data).')
-    model_resource = files("mgm").joinpath("resources/general_model")
+    model_resource = files("abundance_aware").joinpath("resources/general_model")
 
     with as_file(model_resource) as model_path:
         parser.add_argument(
@@ -53,12 +55,12 @@ def GetCLIParser():
             '--model',
             type=str,
             default=str(model_path),
-            help='The path to MGM model. Could be self-supervised or supervised model. Default is the pretrained MGM model on MGnify data.'
+            help='The path to GWMM model. Could be self-supervised or supervised model. Default is the pretrained MGM model on MGnify data.'
         )
     parser.add_argument('-s', '--val-split', type=float, default=0.1,
                         help='The fraction of validation samples.')
-    parser.add_argument('-H', '--log', type=str, default='MGM_log',
-                        help='The path to store training history of MGM model.')
+    parser.add_argument('-H', '--log', type=str, default='GWMM_log',
+                        help='The path to store training history of GWMM model.')
     parser.add_argument('--seed', type=int, default=None,
                         help='The random seed for reproducibility. If not provided, a random seed will be generated.')
 
@@ -73,8 +75,8 @@ def GetCLIParser():
                            help='Do not normalize the countmatrix if you have already normalized it by your own approach.')
     # ------------------------------------------------------------------------------------------------------------------
     pretrain = parser.add_argument_group(
-        title='pretrain', description='Pretrain the MGM model using the microbiome corpus followed GPT style.\n'
-                                      'Input: the microbiome corpus, Output: pretrained MGM model')
+        title='pretrain', description='Pretrain the GWMM model using the microbiome corpus followed GPT style.\n'
+                                      'Input: the microbiome corpus, Output: pretrained GWMM model')
     pretrain.add_argument('--with-label', action='store_true', default=False,
                           help='if the label file is provided, the label token will be added following the <bos> token. \n'
                                'The tokenizer will be updated to include the label token and the embedding layer will be updated to include the label embedding.')
@@ -83,16 +85,16 @@ def GetCLIParser():
     # ------------------------------------------------------------------------------------------------------------------
 
     train = parser.add_argument_group(
-        title='train', description='Train supervised MGM model without mask pretrained weights.'
+        title='train', description='Train supervised GWMM model without mask pretrained weights.'
                                    'A microbiome corpus constructed by `construct` mode and properly labeled data '
                                    'must be provided. Label file should be in csv format, with the first column as sample names, second column as labels.\n'
-                                   'Input: corpus in pkl file, label file in csv format, output: supervised MGM model')
+                                   'Input: corpus in pkl file, label file in csv format, output: supervised GWMM model')
     # ------------------------------------------------------------------------------------------------------------------
     finetune = parser.add_argument_group(
-        title='finetune', description='Finetune MGM model to fit in a new ontology, A microbiome corpus '
+        title='finetune', description='Finetune GWMM model to fit in a new ontology, A microbiome corpus '
                                       'and properly labeled data must be provided.\n'
-                                      'use `-model` option to indicate a customized MGM model.\n'
-                                      'Input: corpus in pkl file, label file in csv format, output: finetuned MGM model')
+                                      'use `-model` option to indicate a customized GWMM model.\n'
+                                      'Input: corpus in pkl file, label file in csv format, output: finetuned GWMM model')
 
     # ------------------------------------------------------------------------------------------------------------------
     predict = parser.add_argument_group(
@@ -123,3 +125,92 @@ def GetCLIParser():
     reconstruct.add_argument('-g', '--generator', type=str, default=None,
                              help='The path to generator.')
     return parser
+
+
+ABLATIONS = {
+    "M0_baseline": {
+        "use_abundance": False,
+        "use_hierarchy": False,
+        "use_independent_attention": False,
+        "use_gate": False,
+    },
+    "M1_abundance_embedding": {
+        "use_abundance": True,
+        "use_hierarchy": False,
+        "use_independent_attention": False,
+        "use_gate": False,
+    },
+    "M2_abundance_attention": {
+        "use_abundance": True,
+        "use_hierarchy": False,
+        "use_independent_attention": True,
+        "use_gate": False,
+    },
+    "M3_hierarchy_embedding": {
+        "use_abundance": False,
+        "use_hierarchy": True,
+        "use_independent_attention": False,
+        "use_gate": False,
+    },
+    "M4_hierarchy_attention": {
+        "use_abundance": False,
+        "use_hierarchy": True,
+        "use_independent_attention": True,
+        "use_gate": False,
+    },
+    "M5_abundance_hierarchy_embedding": {
+        "use_abundance": True,
+        "use_hierarchy": True,
+        "use_independent_attention": False,
+        "use_gate": False,
+    },
+    "M6_abundance_hierarchy_attention": {
+        "use_abundance": True,
+        "use_hierarchy": True,
+        "use_independent_attention": True,
+        "use_gate": False,
+    },
+    "M7_abundance_gating": {
+        "use_abundance": True,
+        "use_hierarchy": False,
+        "use_independent_attention": False,
+        "use_gate": True,
+    },
+    "M8_hierarchy_gating": {
+        "use_abundance": False,
+        "use_hierarchy": True,
+        "use_independent_attention": False,
+        "use_gate": True,
+    },
+    "M9_abundance_hierarchy_gating": {
+        "use_abundance": True,
+        "use_hierarchy": True,
+        "use_independent_attention": False,
+        "use_gate": True,
+    },
+    "M10_full_model": {
+        "use_abundance": True,
+        "use_hierarchy": True,
+        "use_independent_attention": True,
+        "use_gate": True,
+    },
+}
+def log_ablation_metadata(
+    ablation_name,
+    ablation_config,
+    training_args,
+    seed,
+    dataset_version,
+):
+    mlflow.set_tag("experiment_type", "ablation")
+    mlflow.set_tag("ablation_name", ablation_name)
+    mlflow.set_tag("dataset_version", dataset_version)
+
+    mlflow.log_params({
+        **ablation_config,
+        "seed": seed,
+        "learning_rate": training_args.learning_rate,
+        "epochs": training_args.num_train_epochs,
+        "batch_size": training_args.per_device_train_batch_size,
+        "eval_steps": training_args.eval_steps,
+    })

@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
 
-from abundance_aware.src.MultiBiasArchitecture.HierarchyAttention.utils.Utils import load_vocab_sizes
-from tokenize_hierarchy import TAXONOMIC_LEVELS
+from abundance_aware.src.MultiBiasArchitecture.HierarchyAttention.utils.Utils import load_vocab_sizes, TAXONOMIC_LEVELS
 
 
 class TaxonomyHierarchyEncoder(nn.Module):
