@@ -26,8 +26,6 @@ class MultiEmbeddingsGPT2LMHeadModel(ConditionedEmbeddingsMixin, GPT2LMHeadModel
         if input_ids is None:
             raise ValueError("input_ids is required")
         inputs_embeds = self.transformer.wte(input_ids)
-        # pop every consumed raw input so it isn't also forwarded to the HF
-        # base forward() as an unrecognized kwarg
         inputs_embeds = self.apply_conditioning(inputs_embeds, input_ids,
                                                  **{k: v for k, v in list(kwargs.items())})
         consumed = {c.input_key for c in self.conditioners.values() if c.input_key != "input_ids"}
