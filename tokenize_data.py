@@ -13,7 +13,7 @@ def main():
     parser.add_argument(
         "input",
         type=Path,
-        help="Path to the abundance HDF5 file, e.g. data/abundance_processed.h5",
+        help="Path to the abundance HDF5 file, e.g. data/abundance_processed.h5 or data/abundance_processed.csv",
     )
 
     parser.add_argument(
